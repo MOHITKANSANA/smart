@@ -1,0 +1,326 @@
+{
+  "entities": {
+    "User": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "User",
+      "type": "object",
+      "description": "Represents a user of the Smart Study MPSE application.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the User entity."
+        },
+        "fullName": {
+          "type": "string",
+          "description": "The full name of the user."
+        },
+        "email": {
+          "type": "string",
+          "description": "The email address of the user.",
+          "format": "email"
+        },
+        "mobileNumber": {
+          "type": "string",
+          "description": "The mobile number of the user."
+        },
+        "role": {
+          "type": "string",
+          "description": "The role of the user (e.g., Student, Admin)."
+        }
+      },
+      "required": [
+        "id",
+        "fullName",
+        "email",
+        "role"
+      ]
+    },
+    "Admin": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Admin",
+      "type": "object",
+      "description": "Represents an administrator of the Smart Study MPSE application.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Admin entity."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to User. (Relationship: User 1:1 Admin)"
+        },
+        "adminCode": {
+          "type": "string",
+          "description": "Secret admin code for authentication."
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "adminCode"
+      ]
+    },
+    "Paper": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Paper",
+      "type": "object",
+      "description": "Represents a paper or subject in the Smart Study MPSE application.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Paper entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the paper or subject (e.g., Paper 1, Mathematics)."
+        },
+        "description": {
+          "type": "string",
+          "description": "A short description of the paper (max 100 words)."
+        },
+        "paperNumber": {
+          "type": "number",
+          "description": "The number of the paper for ordering (e.g., 1, 2, 3)."
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "description",
+        "paperNumber"
+      ]
+    },
+    "Tab": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Tab",
+      "type": "object",
+      "description": "Represents a tab or chapter within a paper.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Tab entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the tab (e.g., Chapter 1, Ancient History)."
+        },
+        "paperId": {
+          "type": "string",
+          "description": "Reference to Paper. (Relationship: Paper 1:N Tab)"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "paperId"
+      ]
+    },
+    "SubFolder": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "SubFolder",
+      "type": "object",
+      "description": "Represents a sub-folder within a tab.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the SubFolder entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the sub-folder."
+        },
+        "paperId": {
+          "type": "string",
+          "description": "Denormalized reference to Paper for easier queries."
+        },
+        "tabId": {
+          "type": "string",
+          "description": "Reference to Tab. (Relationship: Tab 1:N SubFolder)"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "paperId",
+        "tabId"
+      ]
+    },
+    "PdfDocument": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "PdfDocument",
+      "type": "object",
+      "description": "Represents a PDF document available in the Smart Study MPSE application.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the PdfDocument entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the PDF document."
+        },
+        "description": {
+          "type": "string",
+          "description": "A description of the PDF document."
+        },
+        "googleDriveLink": {
+          "type": "string",
+          "description": "The Google Drive link to the PDF document.",
+          "format": "uri"
+        },
+        "paperId": {
+          "type": "string",
+          "description": "Denormalized reference to Paper for easier queries."
+        },
+        "tabId": {
+          "type": "string",
+          "description": "Denormalized reference to Tab for easier queries."
+        },
+        "subFolderId": {
+          "type": "string",
+          "description": "Reference to SubFolder. (Relationship: SubFolder 1:N PdfDocument)"
+        },
+        "accessType": {
+          "type": "string",
+          "description": "The access type of the PDF document (Free or Paid)."
+        },
+        "price": {
+          "type": "number",
+          "description": "The price of the PDF if it is 'Paid'."
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "description",
+        "googleDriveLink",
+        "subFolderId",
+        "tabId",
+        "paperId",
+        "accessType"
+      ]
+    },
+    "Combo": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Combo",
+      "type": "object",
+      "description": "Represents a purchasable or free combo of multiple PDF documents.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Combo entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the PDF combo."
+        },
+        "description": {
+          "type": "string",
+          "description": "A short description of the combo."
+        },
+        "accessType": {
+          "type": "string",
+          "enum": ["Free", "Paid"],
+          "description": "The access type of the combo."
+        },
+        "price": {
+          "type": "number",
+          "description": "The price of the combo if it is 'Paid'."
+        },
+        "pdfIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "An array of PdfDocument IDs included in this combo."
+        },
+        "imageUrl": {
+          "type": "string",
+          "description": "URL for the combo's background image.",
+          "format": "uri"
+        }
+      },
+      "required": ["id", "name", "description", "accessType", "pdfIds"]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/users/{userId}",
+        "definition": {
+          "entityName": "User",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "Stores user profiles. Accessible only by the user and admins."
+        }
+      },
+      {
+        "path": "/roles_admin/{userId}",
+        "definition": {
+          "entityName": "Admin",
+          "schema": {
+            "$ref": "#/backend/entities/Admin"
+          },
+          "description": "Collection to indicate admin roles. Existence of a document grants admin privileges."
+        }
+      },
+      {
+        "path": "/papers/{paperId}",
+        "definition": {
+          "entityName": "Paper",
+          "schema": {
+            "$ref": "#/backend/entities/Paper"
+          },
+          "description": "Stores paper or subject information."
+        }
+      },
+      {
+        "path": "/papers/{paperId}/tabs/{tabId}",
+        "definition": {
+          "entityName": "Tab",
+          "schema": {
+            "$ref": "#/backend/entities/Tab"
+          },
+          "description": "Stores tabs or chapters associated with a specific paper."
+        }
+      },
+       {
+        "path": "/tabs/{tabId}/subFolders/{subFolderId}",
+        "definition": {
+          "entityName": "SubFolder",
+          "schema": {
+            "$ref": "#/backend/entities/SubFolder"
+          },
+          "description": "Stores sub-folders associated with a specific tab."
+        }
+      },
+      {
+        "path": "/subFolders/{subFolderId}/pdfDocuments/{pdfDocumentId}",
+        "definition": {
+          "entityName": "PdfDocument",
+          "schema": {
+            "$ref": "#/backend/entities/PdfDocument"
+          },
+          "description": "Stores PDF documents associated with a specific sub-folder."
+        }
+      },
+      {
+        "path": "/combos/{comboId}",
+        "definition": {
+          "entityName": "Combo",
+          "schema": {
+            "$ref": "#/backend/entities/Combo"
+          },
+          "description": "Stores PDF combo packages that can be free or paid."
+        }
+      }
+    ]
+  }
+}

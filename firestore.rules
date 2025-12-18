@@ -1,0 +1,132 @@
+/**
+ * This ruleset defines the security model for the "Smart Study MPSE" application.
+ *
+ * Core Philosophy:
+ * The security model is based on a strict Role-Based Access Control (RBAC) system.
+ * There are two primary roles: "Student" (a standard user) and "Admin".
+ * Admin privileges are granted by the existence of a corresponding document in the `/roles_admin`
+ * collection, providing a secure and verifiable way to manage administrative access.
+ *
+ * Data Structure:
+ * - /users/{userId}: Stores private user profile data. Each user can only access their own document.
+ * - /roles_admin/{userId}: A private collection used as a lookup to grant admin rights.
+ * - /papers/{paperId}: Public collection of subjects.
+ * - /papers/{paperId}/tabs/{tabId}: Public collection of tabs/chapters within a paper.
+ * - /tabs/{tabId}/subFolders/{subFolderId}: Public collection of sub-folders within a tab.
+ * - /subFolders/{subFolderId}/pdfDocuments/{pdfDocumentId}: Public collection of PDFs within a sub-folder.
+ * - /combos/{comboId}: Public collection of PDF combos.
+ *
+ * Key Security Decisions:
+ * - Admin-Only Content Management: All creation, modification, and deletion of public content
+ *   (Papers, Tabs, SubFolders, PdfDocuments, Combos) is restricted to users with the Admin role.
+ * - Strict User Data Privacy: A user's profile data in `/users/{userId}` is private.
+ * - Public Read Access: All educational content is publicly readable.
+ * - Default Deny: Access is denied by default. All permissions must be explicitly granted.
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // --------------------------------------------------------------------
+    // Helper Functions
+    // --------------------------------------------------------------------
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
+    }
+
+    function documentExists() {
+      return resource != null;
+    }
+
+    // --------------------------------------------------------------------
+    // User Profiles (/users/{userId})
+    // --------------------------------------------------------------------
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow list: if false;
+      allow create: if isOwner(userId) && request.resource.data.id == userId;
+      allow update: if isOwner(userId) && documentExists() && request.resource.data.id == resource.data.id;
+      allow delete: if isOwner(userId) && documentExists();
+    }
+
+    // --------------------------------------------------------------------
+    // Admin Roles (/roles_admin/{userId})
+    // --------------------------------------------------------------------
+    match /roles_admin/{userId} {
+      allow get: if false;
+      allow list: if false;
+      allow create: if isAdmin();
+      allow update: if false;
+      allow delete: if isAdmin() && documentExists();
+    }
+
+    // --------------------------------------------------------------------
+    // Papers (/papers/{paperId})
+    // --------------------------------------------------------------------
+    match /papers/{paperId} {
+      allow get, list: if true;
+      allow create, update, delete: if isAdmin();
+
+        // --------------------------------------------------------------------
+        // Tabs (/papers/{paperId}/tabs/{tabId})
+        // --------------------------------------------------------------------
+        match /tabs/{tabId} {
+            allow get, list: if true;
+            allow create: if isAdmin() && request.resource.data.paperId == paperId;
+            allow update: if isAdmin() && documentExists() && request.resource.data.paperId == resource.data.paperId;
+            allow delete: if isAdmin() && documentExists();
+        }
+    }
+
+    // --------------------------------------------------------------------
+    // Root-level Tabs, SubFolders, and PDFs for easier querying
+    // --------------------------------------------------------------------
+     match /tabs/{tabId} {
+        allow get, list: if true;
+        allow create, update, delete: if isAdmin(); // Only admins can manage root tabs
+
+        // --------------------------------------------------------------------
+        // Sub-Folders (/tabs/{tabId}/subFolders/{subFolderId})
+        // --------------------------------------------------------------------
+        match /subFolders/{subFolderId} {
+            allow get, list: if true;
+            allow create: if isAdmin() && request.resource.data.tabId == tabId;
+            allow update: if isAdmin() && documentExists() && request.resource.data.tabId == resource.data.tabId;
+            allow delete: if isAdmin() && documentExists();
+        }
+    }
+    
+    match /subFolders/{subFolderId} {
+       allow get, list: if true;
+       allow create, update, delete: if isAdmin();
+
+        // --------------------------------------------------------------------
+        // PDF Documents (/subFolders/{subFolderId}/pdfDocuments/{pdfDocumentId})
+        // --------------------------------------------------------------------
+        match /pdfDocuments/{pdfDocumentId} {
+            allow get, list: if true;
+            allow create: if isAdmin() && request.resource.data.subFolderId == subFolderId;
+            allow update: if isAdmin() && documentExists() && request.resource.data.subFolderId == resource.data.subFolderId;
+            allow delete: if isAdmin() && documentExists();
+        }
+    }
+
+
+    // --------------------------------------------------------------------
+    // Combos (/combos/{comboId})
+    // --------------------------------------------------------------------
+    match /combos/{comboId} {
+      allow get, list: if true;
+      allow create, update, delete: if isAdmin();
+    }
+  }
+}
