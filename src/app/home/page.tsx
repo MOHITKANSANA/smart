@@ -95,7 +95,7 @@ function PaperItem({ paper, index }: { paper: Paper, index: number }) {
     return (
         <AccordionItem value={paper.id} className="border-b-0">
              <Card className="overflow-hidden shadow-md border-0 transition-all duration-300 ease-in-out hover:shadow-xl">
-                 <AccordionTrigger className={cn("p-4 text-white text-left hover:no-underline", gradientClass)}>
+                 <AccordionTrigger className={cn("p-4 text-white text-left hover:no-underline bg-gradient-to-r", gradientClass)}>
                     <div className="flex-1">
                         <h3 className="font-headline text-lg font-bold">{paper.name}</h3>
                     </div>
