@@ -343,7 +343,12 @@ function AdminDashboard() {
 
   async function onSendNotification(values: z.infer<typeof notificationSchema>) {
     setIsSubmitting(true);
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    const newNotification = {
+      ...values,
+      readBy: [],
+      createdAt: serverTimestamp(),
+    };
+    await addDocumentNonBlocking(collection(firestore, "notifications"), newNotification);
     toast({ title: "सफलता!", description: `सूचना "${values.title}" भेज दी गई है।` });
     notificationForm.reset();
     setIsSubmitting(false);
@@ -522,5 +527,3 @@ export default function AdminPage() {
         </AppLayout>
     );
 }
-
-    

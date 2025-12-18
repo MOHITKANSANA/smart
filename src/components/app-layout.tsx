@@ -19,9 +19,10 @@ import {
   FileText,
   ShieldCheck,
   CircleDollarSign,
+  Bell,
 } from "lucide-react";
-import { useUser, useAuth, useDoc, useFirestore, useMemoFirebase } from "@/firebase";
-import { doc } from 'firebase/firestore';
+import { useUser, useAuth, useDoc, useFirestore, useMemoFirebase, useCollection } from "@/firebase";
+import { collection, doc, query, orderBy, limit, serverTimestamp, updateDoc } from 'firebase/firestore';
 
 import {
   SidebarProvider,
@@ -49,10 +50,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
 import { cn } from "@/lib/utils";
-import type { User as AppUser } from '@/lib/types';
+import type { User as AppUser, Notification as AppNotification } from '@/lib/types';
 
 
 const menuItems = [
@@ -233,6 +235,64 @@ function AppSidebar() {
   );
 }
 
+function NotificationPanel() {
+    const firestore = useFirestore();
+    const { user } = useUser();
+    const notificationsQuery = useMemoFirebase(() =>
+        query(collection(firestore, "notifications"), orderBy("createdAt", "desc"), limit(10)),
+        [firestore]
+    );
+    const { data: notifications, isLoading } = useCollection<AppNotification>(notificationsQuery);
+
+    const markAsRead = async (notificationId: string) => {
+        if (!user) return;
+        const notificationRef = doc(firestore, "notifications", notificationId);
+        const notification = notifications?.find(n => n.id === notificationId);
+        if (notification && !notification.readBy?.includes(user.uid)) {
+            await updateDoc(notificationRef, {
+                readBy: [...(notification.readBy || []), user.uid]
+            });
+        }
+    };
+    
+    const unreadCount = React.useMemo(() => {
+        if (!notifications || !user) return 0;
+        return notifications.filter(n => !n.readBy?.includes(user.uid)).length;
+    }, [notifications, user]);
+
+    return (
+        <Popover>
+            <PopoverTrigger asChild>
+                <Button variant="ghost" size="icon" className="relative">
+                    <Bell className="h-6 w-6" />
+                    {unreadCount > 0 && (
+                        <span className="absolute top-0 right-0 h-4 w-4 rounded-full bg-red-500 text-white text-xs flex items-center justify-center">
+                            {unreadCount}
+                        </span>
+                    )}
+                </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-80 p-0">
+                <div className="p-4 font-semibold border-b">Notifications</div>
+                <div className="max-h-96 overflow-y-auto">
+                    {isLoading && <div className="p-4 text-center"><LoaderCircle className="w-6 h-6 animate-spin mx-auto"/></div>}
+                    {!isLoading && (!notifications || notifications.length === 0) && (
+                        <p className="p-4 text-center text-sm text-muted-foreground">No new notifications.</p>
+                    )}
+                    {notifications?.map(notification => {
+                         const isRead = notification.readBy?.includes(user?.uid || '');
+                        return (
+                            <div key={notification.id} className={cn("p-4 border-b hover:bg-muted/50", !isRead && "bg-primary/10")} onClick={() => markAsRead(notification.id)}>
+                                <p className="font-semibold">{notification.title}</p>
+                                <p className="text-sm text-muted-foreground">{notification.message}</p>
+                            </div>
+                        )
+                    })}
+                </div>
+            </PopoverContent>
+        </Popover>
+    );
+}
 
 function TopBar() {
   const { isMobile } = useSidebar();
@@ -267,6 +327,7 @@ function TopBar() {
          <BookOpenCheck className="w-7 h-7 text-primary" />
          <h1 className="font-headline text-xl font-bold gradient-text">MPPSC & Civil Notes</h1>
       </div>
+      <NotificationPanel />
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" className="relative h-10 w-10 rounded-full">

@@ -52,3 +52,12 @@ export type Combo = {
   imageUrl?: string;
   createdAt: any; // Firestore ServerTimestamp
 };
+
+export type Notification = {
+    id: string;
+    title: string;
+    message: string;
+    imageUrl?: string;
+    createdAt: any; // Firestore ServerTimestamp
+    readBy?: string[];
+}

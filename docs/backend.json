@@ -241,6 +241,44 @@
         }
       },
       "required": ["id", "name", "description", "accessType", "pdfIds"]
+    },
+     "Notification": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Notification",
+      "type": "object",
+      "description": "Represents a notification sent to users.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Notification entity."
+        },
+        "title": {
+          "type": "string",
+          "description": "The title of the notification."
+        },
+        "message": {
+          "type": "string",
+          "description": "The main content of the notification."
+        },
+        "imageUrl": {
+          "type": "string",
+          "description": "An optional image URL for the notification.",
+          "format": "uri"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "The timestamp when the notification was created.",
+          "format": "date-time"
+        },
+        "readBy": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            },
+            "description": "An array of user IDs who have read this notification."
+        }
+      },
+      "required": ["id", "title", "message", "createdAt"]
     }
   },
   "auth": {
@@ -319,6 +357,16 @@
             "$ref": "#/backend/entities/Combo"
           },
           "description": "Stores PDF combo packages that can be free or paid."
+        }
+      },
+      {
+        "path": "/notifications/{notificationId}",
+        "definition": {
+          "entityName": "Notification",
+          "schema": {
+            "$ref": "#/backend/entities/Notification"
+          },
+          "description": "Stores notifications sent to users."
         }
       }
     ]
