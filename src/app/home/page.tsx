@@ -8,25 +8,45 @@ import { LoaderCircle, Cloud, ChevronRight } from "lucide-react";
 import { collection, query, orderBy, limit } from "firebase/firestore";
 import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
 import { AppLayout } from "@/components/app-layout";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import type { Paper, Combo, Tab } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
 
-function TopicItem({ topic }: { topic: Tab }) {
+const topicGradients = [
+    'from-blue-500 to-indigo-600',
+    'from-purple-500 to-pink-600',
+    'from-green-500 to-teal-600',
+    'from-yellow-500 to-orange-600',
+    'from-cyan-500 to-sky-600',
+    'from-rose-500 to-red-600',
+];
+
+function TopicItem({ topic, index }: { topic: Tab, index: number }) {
     const router = useRouter();
 
     const handleClick = () => {
         router.push(`/topics/${topic.id}`);
     };
 
+    const gradientClass = topicGradients[index % topicGradients.length];
+
     return (
         <button
-            className="w-full bg-blue-600 text-white rounded-md shadow-md hover:bg-blue-700 transition-all duration-200 transform hover:scale-105 p-3 text-center"
+            className={cn(
+                "w-full text-white rounded-lg shadow-md hover:shadow-lg transition-all duration-300 transform hover:scale-105 p-4 text-center",
+                gradientClass
+            )}
             onClick={handleClick}
         >
-            <h3 className="font-semibold text-sm truncate">{topic.name}</h3>
+            <h3 className="font-semibold text-base truncate">{topic.name}</h3>
         </button>
     );
 }
@@ -40,34 +60,51 @@ function TopicsForPaper({ paperId }: { paperId: string }) {
     const { data: topics, isLoading } = useCollection<Tab>(topicsQuery);
 
     if (isLoading) {
-        return <div className="flex justify-center p-2"><LoaderCircle className="w-5 h-5 animate-spin" /></div>;
+        return <div className="flex justify-center p-4"><LoaderCircle className="w-6 h-6 animate-spin" /></div>;
     }
 
     if (!topics || topics.length === 0) {
-        return <p className="p-2 text-center text-xs text-muted-foreground">इस विषय में कोई टॉपिक नहीं है।</p>;
+        return <p className="p-4 text-center text-sm text-muted-foreground">इस विषय में कोई टॉपिक नहीं है।</p>;
     }
 
     return (
-        <div className={cn(
-            "grid gap-3 px-2 pb-3",
-            topics.length > 1 ? "grid-cols-2" : "grid-cols-1"
-        )}>
-            {topics.map((topic) => (
-                <TopicItem key={topic.id} topic={topic} />
-            ))}
+        <div className="p-4">
+            <div className={cn(
+                "grid gap-4",
+                topics.length > 1 ? "grid-cols-2" : "grid-cols-1"
+            )}>
+                {topics.map((topic, index) => (
+                    <TopicItem key={topic.id} topic={topic} index={index} />
+                ))}
+            </div>
         </div>
     );
 }
 
+const paperGradients = [
+    'from-blue-600 to-indigo-700',
+    'from-purple-600 to-pink-700',
+    'from-green-600 to-teal-700',
+    'from-orange-600 to-red-700',
+    'from-cyan-600 to-sky-700',
+    'from-rose-600 to-fuchsia-700',
+];
 
-function PaperItem({ paper }: { paper: Paper }) {
+function PaperItem({ paper, index }: { paper: Paper, index: number }) {
+    const gradientClass = paperGradients[index % paperGradients.length];
     return (
-        <div className="bg-card/80 backdrop-blur-sm rounded-lg overflow-hidden shadow-md border border-border">
-            <div className="bg-orange-500 text-white p-2.5">
-                <h3 className="font-bold text-base truncate">{paper.name}</h3>
-            </div>
-            <TopicsForPaper paperId={paper.id} />
-        </div>
+        <AccordionItem value={paper.id} className="border-b-0">
+             <Card className="overflow-hidden shadow-md border-0 transition-all duration-300 ease-in-out hover:shadow-xl">
+                 <AccordionTrigger className={cn("p-4 text-white text-left hover:no-underline", gradientClass)}>
+                    <div className="flex-1">
+                        <h3 className="font-headline text-lg font-bold">{paper.name}</h3>
+                    </div>
+                </AccordionTrigger>
+                <AccordionContent className="p-0 bg-card">
+                    <TopicsForPaper paperId={paper.id} />
+                </AccordionContent>
+             </Card>
+        </AccordionItem>
     );
 }
 
@@ -136,9 +173,13 @@ export default function HomePage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Papers Section */}
             <div className="space-y-4">
-                {(papers || []).map((paper) => (
-                    <PaperItem key={paper.id} paper={paper} />
-                ))}
+                 {papers && papers.length > 0 && (
+                    <Accordion type="single" collapsible className="w-full space-y-4">
+                        {(papers || []).map((paper, index) => (
+                            <PaperItem key={paper.id} paper={paper} index={index} />
+                        ))}
+                    </Accordion>
+                )}
             </div>
 
             {/* Combos Section */}
@@ -156,9 +197,7 @@ export default function HomePage() {
                         ))}
                     </div>
                 ) : (
-                    <p className="text-center text-muted-foreground p-8">
-                       कोई कॉम्बो उपलब्ध नहीं है।
-                    </p>
+                    !combosLoading && <p className="text-center text-muted-foreground p-8">कोई कॉम्बो उपलब्ध नहीं है।</p>
                 )}
             </div>
         </div>
@@ -166,3 +205,5 @@ export default function HomePage() {
     </AppLayout>
   );
 }
+
+    
