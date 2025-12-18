@@ -3,7 +3,7 @@
 
 import React from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { collection, query, orderBy, doc } from 'firebase/firestore';
+import { collection, query, orderBy, doc, getDoc } from 'firebase/firestore';
 import { useFirestore, useDoc, useCollection, useMemoFirebase } from '@/firebase';
 import { AppLayout } from '@/components/app-layout';
 import { LoaderCircle, Folder, Home, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -47,8 +47,32 @@ export default function TopicDetailPage() {
     const params = useParams();
     const topicId = params.topicId as string;
     
-    const topicRef = useMemoFirebase(() => doc(firestore, 'tabs', topicId), [firestore, topicId]);
-    const { data: topic, isLoading: isLoadingTopic } = useDoc<Tab>(topicRef);
+    const [topic, setTopic] = React.useState<Tab | null>(null);
+    const [isLoadingTopic, setIsLoadingTopic] = React.useState(true);
+
+    React.useEffect(() => {
+        const fetchTopic = async () => {
+            setIsLoadingTopic(true);
+            // This is inefficient, but necessary with the current data structure.
+            // A root-level 'tabs' collection would be better.
+            const papersSnapshot = await getDocs(collection(firestore, 'papers'));
+            let found = false;
+            for (const paperDoc of papersSnapshot.docs) {
+                const tabRef = doc(firestore, `papers/${paperDoc.id}/tabs/${topicId}`);
+                const tabSnap = await getDoc(tabRef);
+                if (tabSnap.exists()) {
+                    setTopic({ ...tabSnap.data(), id: tabSnap.id } as Tab);
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                setTopic(null);
+            }
+            setIsLoadingTopic(false);
+        }
+        fetchTopic();
+    }, [firestore, topicId]);
 
     const subFoldersQuery = useMemoFirebase(() => 
         query(collection(firestore, `tabs/${topicId}/subFolders`), orderBy('createdAt')), 

@@ -33,7 +33,7 @@ function TopicItem({ topic, index }: { topic: Tab, index: number }) {
     const router = useRouter();
 
     const handleClick = () => {
-        router.push(`/topics/${topic.id}`);
+        router.push(`/papers/${topic.paperId}?tab=${topic.id}`);
     };
 
     const gradientClass = topicGradients[index % topicGradients.length];
