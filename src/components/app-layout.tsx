@@ -18,6 +18,7 @@ import {
   User as UserIcon,
   FileText,
   ShieldCheck,
+  CircleDollarSign,
 } from "lucide-react";
 import { useUser, useAuth, useDoc, useFirestore, useMemoFirebase } from "@/firebase";
 import { doc } from 'firebase/firestore';
@@ -64,6 +65,7 @@ const bottomMenuItems = [
     { icon: UserIcon, label: "प्रोफाइल", href: "#" },
     { icon: FileText, label: "Privacy Policy", href: "/privacy-policy" },
     { icon: ShieldCheck, label: "Terms & Conditions", href: "/terms-conditions" },
+    { icon: CircleDollarSign, label: "Refund Policy", href: "/refund-policy" },
 ]
 
 const adminItems = [
@@ -314,7 +316,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   }, [isUserLoading, user, router, pathname]);
 
   // While checking auth state, show a global loader for protected pages.
-  const protectedPaths = ['/home', '/combos', '/papers', '/admin', '/privacy-policy', '/terms-conditions'];
+  const protectedPaths = ['/home', '/combos', '/papers', '/admin', '/privacy-policy', '/terms-conditions', '/refund-policy'];
   if (isUserLoading && protectedPaths.some(p => pathname.startsWith(p))) {
     return (
         <div className="flex h-screen items-center justify-center bg-background">
