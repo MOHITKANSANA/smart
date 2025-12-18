@@ -4,7 +4,7 @@
 import React from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { collection, query, orderBy, doc, getDoc } from 'firebase/firestore';
-import { useFirestore, useDoc, useCollection, useMemoFirebase } from '@/firebase';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { AppLayout } from '@/components/app-layout';
 import { LoaderCircle, Folder, Home, ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -52,30 +52,26 @@ export default function TopicDetailPage() {
 
     React.useEffect(() => {
         const fetchTopic = async () => {
+            if (!topicId) {
+                setIsLoadingTopic(false);
+                return;
+            }
             setIsLoadingTopic(true);
             // This is inefficient, but necessary with the current data structure.
             // A root-level 'tabs' collection would be better.
-            const papersSnapshot = await getDocs(collection(firestore, 'papers'));
-            let found = false;
-            for (const paperDoc of papersSnapshot.docs) {
-                const tabRef = doc(firestore, `papers/${paperDoc.id}/tabs/${topicId}`);
-                const tabSnap = await getDoc(tabRef);
-                if (tabSnap.exists()) {
-                    setTopic({ ...tabSnap.data(), id: tabSnap.id } as Tab);
-                    found = true;
-                    break;
-                }
-            }
-            if (!found) {
-                setTopic(null);
-            }
+            const papersSnapshot = await getDoc(doc(firestore, 'tabs', topicId));
+             if (papersSnapshot.exists()) {
+                 setTopic({ ...papersSnapshot.data(), id: papersSnapshot.id } as Tab);
+             } else {
+                 setTopic(null);
+             }
             setIsLoadingTopic(false);
         }
         fetchTopic();
     }, [firestore, topicId]);
 
     const subFoldersQuery = useMemoFirebase(() => 
-        query(collection(firestore, `tabs/${topicId}/subFolders`), orderBy('createdAt')), 
+        query(collection(firestore, `tabs/${topicId}/subFolders`), orderBy('name')), 
         [firestore, topicId]
     );
     const { data: subFolders, isLoading: isLoadingSubFolders } = useCollection<SubFolder>(subFoldersQuery);
