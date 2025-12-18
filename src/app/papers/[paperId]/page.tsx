@@ -7,47 +7,37 @@ import { useFirestore, useDoc, useCollection, useMemoFirebase } from '@/firebase
 import { AppLayout } from '@/components/app-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { LoaderCircle, BookOpen, FileText, Lock, Unlock, Home, ChevronLeft } from 'lucide-react';
+import { LoaderCircle, BookOpen, FileText, Lock, Unlock, Home, ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Paper, Tab, PdfDocument, SubFolder } from '@/lib/types';
 import { useToast } from "@/hooks/use-toast";
 import { Button } from '@/components/ui/button';
-import PaymentDialog from '@/components/payment-dialog';
 
 const pdfGradients = [
-    'dark:from-sky-900/70 dark:to-blue-900/70',
-    'dark:from-fuchsia-900/70 dark:to-purple-900/70',
-    'dark:from-emerald-900/70 dark:to-green-900/70',
-    'dark:from-amber-900/70 dark:to-yellow-900/70',
-    'dark:from-rose-900/70 dark:to-red-900/70',
-    'dark:from-violet-900/70 dark:to-indigo-900/70',
+    'dark:from-sky-900/70 dark:to-blue-900/70 from-sky-100 to-blue-100',
+    'dark:from-fuchsia-900/70 dark:to-purple-900/70 from-fuchsia-100 to-purple-100',
+    'dark:from-emerald-900/70 dark:to-green-900/70 from-emerald-100 to-green-100',
+    'dark:from-amber-900/70 dark:to-yellow-900/70 from-amber-100 to-yellow-100',
+    'dark:from-rose-900/70 dark:to-red-900/70 from-rose-100 to-red-100',
+    'dark:from-violet-900/70 dark:to-indigo-900/70 from-violet-100 to-indigo-100',
 ];
 
 function PdfItem({ pdf, index }: { pdf: PdfDocument; index: number }) {
     const router = useRouter();
-    const isPaid = pdf.accessType === 'Paid';
-    const [dialogOpen, setDialogOpen] = useState(false);
     
     const gradientClass = `bg-gradient-to-r ${pdfGradients[index % pdfGradients.length]}`;
 
     const handleClick = (e: React.MouseEvent) => {
         e.preventDefault();
-        if (isPaid) {
-            setDialogOpen(true);
-        } else {
-            router.push(`/ad-gateway?url=${encodeURIComponent(pdf.googleDriveLink)}`);
-        }
+        router.push(`/ad-gateway?url=${encodeURIComponent(pdf.googleDriveLink)}`);
     }
 
     return (
         <>
         <a href="#" onClick={handleClick} className="block">
           <div className={cn("flex items-center p-3 rounded-lg hover:shadow-md transition-all duration-200", gradientClass)}>
-            <div className={cn("p-2 rounded-md mr-4", isPaid ? 'bg-amber-500/20' : 'bg-green-500/20')}>
-              {isPaid 
-                ? <Lock className="h-5 w-5 text-amber-500 dark:text-amber-400" />
-                : <Unlock className="h-5 w-5 text-green-600 dark:text-green-400" />
-              }
+            <div className={cn("p-2 rounded-md mr-4", 'bg-green-500/20')}>
+                <FileText className="h-5 w-5 text-green-600 dark:text-green-400" />
             </div>
             <div className="flex-1">
               <p className="font-semibold text-foreground text-sm">{pdf.name}</p>
@@ -55,12 +45,6 @@ function PdfItem({ pdf, index }: { pdf: PdfDocument; index: number }) {
             </div>
           </div>
         </a>
-        <PaymentDialog 
-            isOpen={dialogOpen} 
-            setIsOpen={setDialogOpen} 
-            item={pdf}
-            itemType="pdf"
-        />
         </>
     )
 }
@@ -113,6 +97,14 @@ export default function PaperDetailPage() {
     const [subFoldersByTopic, setSubFoldersByTopic] = useState<Record<string, SubFolder[]>>({});
     const [loadingSubFolders, setLoadingSubFolders] = useState<Record<string, boolean>>({});
     const [openAccordion, setOpenAccordion] = useState<string>(openTabId || '');
+    
+    const topicGradients = [
+      'from-purple-500 to-pink-600',
+      'from-sky-500 to-blue-600',
+      'from-emerald-500 to-teal-600',
+      'from-rose-500 to-red-600',
+    ];
+
 
     const fetchSubFoldersForTopic = useCallback(async (topicId: string) => {
         if (!topicId || subFoldersByTopic[topicId]) return;
@@ -184,7 +176,7 @@ export default function PaperDetailPage() {
                        {topics.map((topic, index) => (
                            <AccordionItem key={topic.id} value={topic.id} className="border-b-0">
                              <Card className="overflow-hidden shadow-md border-0 transition-all duration-300 ease-in-out hover:shadow-xl">
-                                 <AccordionTrigger className={cn("p-4 text-white text-left hover:no-underline bg-gradient-to-r from-purple-500 to-pink-600")}>
+                                 <AccordionTrigger className={cn("p-4 text-white text-left hover:no-underline bg-gradient-to-r", topicGradients[index % topicGradients.length])}>
                                     <div className="flex-1">
                                         <h3 className="font-headline text-lg font-bold">{topic.name}</h3>
                                     </div>

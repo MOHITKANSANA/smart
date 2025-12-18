@@ -11,12 +11,12 @@ import type { SubFolder, PdfDocument } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 
 const pdfGradients = [
-    'dark:from-sky-900/70 dark:to-blue-900/70',
-    'dark:from-fuchsia-900/70 dark:to-purple-900/70',
-    'dark:from-emerald-900/70 dark:to-green-900/70',
-    'dark:from-amber-900/70 dark:to-yellow-900/70',
-    'dark:from-rose-900/70 dark:to-red-900/70',
-    'dark:from-violet-900/70 dark:to-indigo-900/70',
+    'dark:from-sky-900/70 dark:to-blue-900/70 from-sky-100 to-blue-100',
+    'dark:from-fuchsia-900/70 dark:to-purple-900/70 from-fuchsia-100 to-purple-100',
+    'dark:from-emerald-900/70 dark:to-green-900/70 from-emerald-100 to-green-100',
+    'dark:from-amber-900/70 dark:to-yellow-900/70 from-amber-100 to-yellow-100',
+    'dark:from-rose-900/70 dark:to-red-900/70 from-rose-100 to-red-100',
+    'dark:from-violet-900/70 dark:to-indigo-900/70 from-violet-100 to-indigo-100',
 ];
 
 function PdfItem({ pdf, index }: { pdf: PdfDocument; index: number }) {
