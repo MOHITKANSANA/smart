@@ -17,47 +17,37 @@ export default function TermsConditionsPage() {
               <CardTitle className="text-3xl font-headline gradient-text">Terms & Conditions</CardTitle>
             </CardHeader>
             <CardContent className="prose prose-invert max-w-none text-muted-foreground">
-                <p><strong>Last Updated:</strong> 18 December 2025</p>
-
-                <h2>1. Agreement to Terms</h2>
+                <h2>1. Services Provided</h2>
                 <p>
-                    By using the MPPSC & Civil Notes application ("App"), you agree to be bound by these Terms and Conditions. If you do not agree to these terms, please do not use the App.
+                    Services provided are digital in nature. This includes, but is not limited to, PDF documents, combos, and other digital course materials.
                 </p>
 
-                <h2>2. Intellectual Property Rights</h2>
+                <h2>2. Access to Content</h2>
                 <p>
-                    Unless otherwise indicated, the App is our proprietary property and all source code, databases, functionality, software, website designs, audio, video, text, photographs, and graphics on the App (collectively, the “Content”) and the trademarks, service marks, and logos contained therein (the “Marks”) are owned or controlled by us or licensed to us, and are protected by copyright and trademark laws.
+                    Access is granted after successful payment for paid content. Free content is accessible as specified within the application.
                 </p>
 
-                <h2>3. User Representations</h2>
-                <p>By using the App, you represent and warrant that:</p>
-                <ul>
-                    <li>All registration information you submit will be true, accurate, current, and complete.</li>
-                    <li>You will maintain the accuracy of such information and promptly update such registration information as necessary.</li>
-                    <li>You have the legal capacity and you agree to comply with these Terms and Conditions.</li>
-                </ul>
-
-                <h2>4. Prohibited Activities</h2>
+                <h2>3. User Accounts</h2>
                 <p>
-                    You may not access or use the App for any purpose other than that for which we make the App available. The App may not be used in connection with any commercial endeavors except those that are specifically endorsed or approved by us.
+                    Users must not share login credentials. Each account is for a single user only. You are responsible for maintaining the confidentiality of your account and password.
                 </p>
 
-                <h2>5. Payments and Refunds</h2>
+                <h2>4. Content Usage</h2>
                 <p>
-                    All payments are processed via Razorpay. We do not store any of your payment information. All purchases of digital content (PDFs, combos, etc.) are final and non-refundable. By completing a purchase, you acknowledge that you will lose your right to a refund once the content is accessed.
+                    Misuse of content may result in account suspension. Prohibited activities include, but are not limited to, unauthorized distribution, reproduction, or commercial use of the content.
                 </p>
 
+                <h2>5. Updates to Policies</h2>
+                <p>
+                    Quickly Study reserves the right to update services and policies at any time. We will notify users of any significant changes, but it is the user's responsibility to review the terms periodically.
+                </p>
+                
                 <h2>6. Disclaimer</h2>
                 <p>
                     The content provided in this App is for educational purposes only. We do not guarantee the accuracy, completeness, or usefulness of any information in the App. We are not responsible for any errors or omissions, or for the results obtained from the use of this information.
                 </p>
 
-                <h2>7. Governing Law</h2>
-                <p>
-                    These Terms and Conditions and your use of the App are governed by and construed in accordance with the laws of India.
-                </p>
-
-                <h2>8. Contact Us</h2>
+                <h2>7. Contact Us</h2>
                 <p>
                     In order to resolve a complaint regarding the App or to receive further information regarding use of the App, please contact us.
                 </p>
