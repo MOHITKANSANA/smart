@@ -17,15 +17,15 @@ function ComboItem({ combo, index }: { combo: Combo; index: number }) {
     const router = useRouter();
 
     const comboGradients = [
-        'from-blue-400 to-indigo-500',
-        'from-yellow-400 to-amber-500',
-        'from-green-400 to-teal-500',
-        'from-pink-400 to-rose-500',
-        'from-cyan-400 to-sky-500',
+        'from-blue-400 to-purple-500',
+        'from-yellow-400 to-orange-500',
+        'from-green-400 to-cyan-500',
+        'from-pink-400 to-red-500',
+        'from-indigo-500 to-fuchsia-600',
         'from-lime-400 to-emerald-500',
-        'from-fuchsia-400 to-purple-500',
-        'from-red-400 to-orange-500',
-        'from-violet-400 to-purple-500',
+        'from-rose-500 to-violet-600',
+        'from-amber-500 to-red-600',
+        'from-teal-400 to-sky-500',
     ];
     const gradientClass = comboGradients[index % comboGradients.length];
 
@@ -40,7 +40,7 @@ function ComboItem({ combo, index }: { combo: Combo; index: number }) {
                  {combo.imageUrl ? (
                     <Image src={combo.imageUrl} alt={combo.name} fill={true} objectFit="cover" className="opacity-80 group-hover:opacity-100 transition-opacity" />
                  ) : (
-                    <div className={cn("absolute inset-0 bg-gradient-to-r", gradientClass)} />
+                    <div className={cn("absolute inset-0 bg-gradient-to-br", gradientClass)} />
                  )}
                  <div className="absolute inset-0 bg-black/40 group-hover:bg-black/50 transition-colors"></div>
                  <div className="z-10">

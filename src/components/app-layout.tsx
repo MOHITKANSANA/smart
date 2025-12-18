@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -85,7 +86,7 @@ const generateColorFromString = (str: string) => {
         .toUpperCase();
 
     const color = "00000".substring(0, 6 - c.length) + c;
-    return `#${color}`;
+    return `#${'\'\'\''}${color}`;
 };
 
 
@@ -324,7 +325,6 @@ function TopBar() {
     <header className="sticky top-0 z-10 flex h-16 items-center gap-4 border-b bg-background/80 backdrop-blur-sm px-4 md:px-6">
       <SidebarTrigger className={cn(!isMobile && "hidden")}/>
       <div className="flex-1 flex items-center gap-2">
-         <BookOpenCheck className="w-7 h-7 text-primary" />
          <h1 className="font-headline text-xl font-bold gradient-text">MPPSC & Civil Notes</h1>
       </div>
       <NotificationPanel />
