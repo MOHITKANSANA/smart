@@ -42,7 +42,7 @@ function TopicItem({ topic, index }: { topic: Tab, index: number }) {
     return (
         <button
             className={cn(
-                "w-full text-white rounded-lg shadow-md hover:shadow-lg transition-all duration-300 transform hover:scale-105 p-4 text-center",
+                "w-full text-white rounded-lg shadow-md hover:shadow-lg transition-all duration-300 transform hover:scale-105 p-4 text-center bg-gradient-to-r",
                 gradientClass
             )}
             onClick={handleClick}
@@ -136,9 +136,9 @@ function ComboItem({ combo, index }: { combo: Combo; index: number }) {
                  {combo.imageUrl ? (
                     <Image src={combo.imageUrl} alt={combo.name} fill={true} objectFit="cover" className="opacity-80 group-hover:opacity-100 transition-opacity" />
                  ) : (
-                    <div className={cn("absolute inset-0", gradientClass)} />
+                    <div className={cn("absolute inset-0 bg-gradient-to-r", gradientClass)} />
                  )}
-                 <div className="absolute inset-0 bg-black/40"></div>
+                 <div className="absolute inset-0 bg-black/40 group-hover:bg-black/50 transition-colors"></div>
 
                  <div className="z-10">
                     <Cloud className="w-8 h-8 mx-auto mb-2"/>

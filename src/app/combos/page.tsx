@@ -40,9 +40,9 @@ function ComboItem({ combo, index }: { combo: Combo; index: number }) {
                  {combo.imageUrl ? (
                     <Image src={combo.imageUrl} alt={combo.name} fill={true} objectFit="cover" className="opacity-80 group-hover:opacity-100 transition-opacity" />
                  ) : (
-                    <div className={cn("absolute inset-0", gradientClass)} />
+                    <div className={cn("absolute inset-0 bg-gradient-to-r", gradientClass)} />
                  )}
-                 <div className="absolute inset-0 bg-black/40"></div>
+                 <div className="absolute inset-0 bg-black/40 group-hover:bg-black/50 transition-colors"></div>
                  <div className="z-10">
                     <Cloud className="w-8 h-8 mx-auto mb-2"/>
                     <CardTitle className="text-sm font-bold line-clamp-2">{combo.name}</CardTitle>
