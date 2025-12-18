@@ -14,7 +14,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { Card, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import type { Paper, Combo, Tab } from "@/lib/types";
 import { Button } from "@/components/ui/button";
@@ -33,7 +33,7 @@ function TopicItem({ topic, index }: { topic: Tab, index: number }) {
     const router = useRouter();
 
     const handleClick = () => {
-        router.push(`/topics/${topic.id}`);
+        router.push(`/papers/${topic.paperId}?tab=${topic.id}`);
     };
 
     const gradientClass = topicGradients[index % topicGradients.length];
@@ -68,7 +68,7 @@ function TopicsForPaper({ paperId }: { paperId: string }) {
     }
 
     return (
-        <div className="p-4">
+        <div className="p-4 bg-card">
             <div className={cn(
                 "grid gap-4",
                 topics.length > 1 ? "grid-cols-2" : "grid-cols-1"
@@ -171,35 +171,31 @@ export default function HomePage() {
         )}
 
         <div className="space-y-8">
-            {/* Papers Section */}
-            <div className="space-y-4">
-                 {papers && papers.length > 0 && (
-                    <Accordion type="single" collapsible className="w-full space-y-4">
-                        {(papers || []).map((paper, index) => (
-                            <PaperItem key={paper.id} paper={paper} index={index} />
-                        ))}
-                    </Accordion>
-                )}
-            </div>
+            {papers && papers.length > 0 && (
+              <div className="space-y-4">
+                  <Accordion type="single" collapsible className="w-full space-y-4">
+                      {(papers || []).map((paper, index) => (
+                          <PaperItem key={paper.id} paper={paper} index={index} />
+                      ))}
+                  </Accordion>
+              </div>
+            )}
 
-            {/* Combos Section */}
-            <div>
-                 <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-xl font-headline font-bold gradient-text">Important Notes & Tricks</h2>
-                     <Link href="/combos">
-                        <Button variant="ghost" size="sm" className="text-primary hover:bg-primary/10">सभी देखें <ChevronRight className="w-4 h-4 ml-1"/></Button>
-                    </Link>
-                </div>
-                {recentCombos && recentCombos.length > 0 ? (
-                    <div className="grid grid-cols-3 gap-4">
-                        {recentCombos.map((combo, index) => (
-                            <ComboItem key={combo.id} combo={combo} index={index} />
-                        ))}
-                    </div>
-                ) : (
-                    !combosLoading && <p className="text-center text-muted-foreground p-8">कोई कॉम्बो उपलब्ध नहीं है।</p>
-                )}
-            </div>
+            {recentCombos && recentCombos.length > 0 && (
+              <div>
+                   <div className="flex justify-between items-center mb-4">
+                      <h2 className="text-xl font-headline font-bold gradient-text">Important Notes & Tricks</h2>
+                       <Link href="/combos">
+                          <Button variant="ghost" size="sm" className="text-primary hover:bg-primary/10">सभी देखें <ChevronRight className="w-4 h-4 ml-1"/></Button>
+                      </Link>
+                  </div>
+                  <div className="grid grid-cols-3 gap-4">
+                      {recentCombos.map((combo, index) => (
+                          <ComboItem key={combo.id} combo={combo} index={index} />
+                      ))}
+                  </div>
+              </div>
+            )}
         </div>
       </main>
     </AppLayout>

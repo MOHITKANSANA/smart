@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
@@ -5,49 +6,12 @@ import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { collection, query, orderBy, doc, getDocs } from 'firebase/firestore';
 import { useFirestore, useDoc, useCollection, useMemoFirebase } from '@/firebase';
 import { AppLayout } from '@/components/app-layout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { LoaderCircle, BookOpen, FileText, Lock, Unlock, Home, ChevronLeft, ChevronRight } from 'lucide-react';
+import { LoaderCircle, BookOpen, ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { Paper, Tab, PdfDocument, SubFolder } from '@/lib/types';
-import { useToast } from "@/hooks/use-toast";
+import type { Paper, Tab, SubFolder } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-
-const pdfGradients = [
-    'dark:from-sky-900/70 dark:to-blue-900/70 from-sky-100 to-blue-100',
-    'dark:from-fuchsia-900/70 dark:to-purple-900/70 from-fuchsia-100 to-purple-100',
-    'dark:from-emerald-900/70 dark:to-green-900/70 from-emerald-100 to-green-100',
-    'dark:from-amber-900/70 dark:to-yellow-900/70 from-amber-100 to-yellow-100',
-    'dark:from-rose-900/70 dark:to-red-900/70 from-rose-100 to-red-100',
-    'dark:from-violet-900/70 dark:to-indigo-900/70 from-violet-100 to-indigo-100',
-];
-
-function PdfItem({ pdf, index }: { pdf: PdfDocument; index: number }) {
-    const router = useRouter();
-    
-    const gradientClass = `bg-gradient-to-r ${pdfGradients[index % pdfGradients.length]}`;
-
-    const handleClick = (e: React.MouseEvent) => {
-        e.preventDefault();
-        router.push(`/ad-gateway?url=${encodeURIComponent(pdf.googleDriveLink)}`);
-    }
-
-    return (
-        <>
-        <a href="#" onClick={handleClick} className="block">
-          <div className={cn("flex items-center p-3 rounded-lg hover:shadow-md transition-all duration-200", gradientClass)}>
-            <div className={cn("p-2 rounded-md mr-4", 'bg-green-500/20')}>
-                <FileText className="h-5 w-5 text-green-600 dark:text-green-400" />
-            </div>
-            <div className="flex-1">
-              <p className="font-semibold text-foreground text-sm">{pdf.name}</p>
-              <p className="text-xs text-muted-foreground">{pdf.description}</p>
-            </div>
-          </div>
-        </a>
-        </>
-    )
-}
 
 function SubFolderItem({ subFolder, index }: { subFolder: SubFolder; index: number }) {
     const router = useRouter();
@@ -63,18 +27,16 @@ function SubFolderItem({ subFolder, index }: { subFolder: SubFolder; index: numb
     ];
 
      return (
-        <div
+        <button
             className={cn(
                 "w-full rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 cursor-pointer p-4 flex items-center justify-between text-white",
                 subFolderGradients[index % subFolderGradients.length]
             )}
             onClick={handleClick}
         >
-            <div>
-                <h3 className="font-headline text-lg font-bold">{subFolder.name}</h3>
-            </div>
+            <h3 className="font-headline text-lg font-bold">{subFolder.name}</h3>
             <ChevronRight className="w-6 h-6" />
-        </div>
+        </button>
     );
 }
 
@@ -151,7 +113,7 @@ export default function PaperDetailPage() {
                     <h1 className="text-2xl font-bold">विषय नहीं मिला</h1>
                     <p className="text-muted-foreground">यह विषय मौजूद नहीं है या हटा दिया गया है।</p>
                     <Button onClick={() => router.push('/home')} className="mt-4">
-                        <Home className="mr-2 h-4 w-4" /> होम पर वापस जाएं
+                         होम पर वापस जाएं
                     </Button>
                 </div>
             </AppLayout>
@@ -167,7 +129,6 @@ export default function PaperDetailPage() {
                     </Button>
                     <h1 className="font-headline text-2xl sm:text-3xl font-bold gradient-text">{paper.name}</h1>
                 </div>
-                <p className="text-muted-foreground mb-6">{paper.description}</p>
                 
                 {!topics || topics.length === 0 ? (
                      <p className="text-center text-muted-foreground p-8">इस विषय के लिए अभी कोई टॉपिक उपलब्ध नहीं है।</p>
@@ -182,7 +143,7 @@ export default function PaperDetailPage() {
                                     </div>
                                 </AccordionTrigger>
                                 <AccordionContent className="p-2 bg-card">
-                                   {loadingSubFolders[topic.id] ? <LoaderCircle className="mx-auto my-4 w-6 h-6 animate-spin" /> : 
+                                   {loadingSubFolders[topic.id] ? <div className="flex justify-center p-4"><LoaderCircle className="my-4 w-6 h-6 animate-spin" /></div> : 
                                     !subFoldersByTopic[topic.id] || subFoldersByTopic[topic.id].length === 0 ? (
                                         <p className="text-center text-muted-foreground p-4">इस टॉपिक में कोई सब-फोल्डर नहीं है।</p>
                                     ) : (

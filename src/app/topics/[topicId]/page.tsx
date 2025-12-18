@@ -1,8 +1,9 @@
+
 "use client";
 
 import React from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { collection, query, where, orderBy, doc } from 'firebase/firestore';
+import { collection, query, orderBy, doc } from 'firebase/firestore';
 import { useFirestore, useDoc, useCollection, useMemoFirebase } from '@/firebase';
 import { AppLayout } from '@/components/app-layout';
 import { LoaderCircle, Folder, Home, ChevronLeft, ChevronRight } from 'lucide-react';
