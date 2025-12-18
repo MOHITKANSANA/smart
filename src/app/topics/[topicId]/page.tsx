@@ -27,18 +27,16 @@ function SubFolderItem({ subFolder, index }: { subFolder: SubFolder; index: numb
     }
 
      return (
-        <div
+        <button
             className={cn(
                 "w-full rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 cursor-pointer p-4 flex items-center justify-between text-white",
                 subFolderGradients[index % subFolderGradients.length]
             )}
             onClick={handleClick}
         >
-            <div>
-                <h3 className="font-headline text-lg font-bold">{subFolder.name}</h3>
-            </div>
+            <h3 className="font-headline text-lg font-bold">{subFolder.name}</h3>
             <ChevronRight className="w-6 h-6" />
-        </div>
+        </button>
     );
 }
 

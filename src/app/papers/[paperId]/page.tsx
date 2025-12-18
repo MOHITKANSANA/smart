@@ -13,18 +13,20 @@ import { cn } from '@/lib/utils';
 import type { Paper, Tab, SubFolder } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 
+const subFolderGradients = [
+    'from-pink-500 to-rose-500',
+    'from-amber-500 to-orange-500',
+    'from-lime-500 to-green-500',
+    'from-cyan-500 to-sky-500',
+    'from-violet-500 to-purple-500',
+    'from-red-500 to-yellow-500',
+];
+
 function SubFolderItem({ subFolder, index }: { subFolder: SubFolder; index: number }) {
     const router = useRouter();
     const handleClick = () => {
         router.push(`/sub-folders/${subFolder.id}`);
     }
-
-    const subFolderGradients = [
-        'from-pink-500 to-rose-500',
-        'from-amber-500 to-orange-500',
-        'from-lime-500 to-green-500',
-        'from-cyan-500 to-sky-500',
-    ];
 
      return (
         <button

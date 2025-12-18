@@ -33,7 +33,8 @@ function TopicItem({ topic, index }: { topic: Tab, index: number }) {
     const router = useRouter();
 
     const handleClick = () => {
-        router.push(`/papers/${topic.paperId}?tab=${topic.id}`);
+        // Go directly to the topic detail page which lists sub-folders
+        router.push(`/topics/${topic.id}`);
     };
 
     const gradientClass = topicGradients[index % topicGradients.length];
