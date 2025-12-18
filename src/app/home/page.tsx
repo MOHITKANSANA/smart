@@ -125,7 +125,7 @@ function ComboItem({ combo, index }: { combo: Combo; index: number }) {
 
     return (
         <a href="#" onClick={handleClick} className="block group">
-            <Card className="text-white border-0 shadow-lg hover:shadow-2xl transition-all duration-300 transform group-hover:scale-105 aspect-square flex flex-col justify-center items-center p-2 overflow-hidden relative text-center">
+            <Card className="text-white border-0 shadow-lg hover:shadow-2xl transition-all duration-300 transform group-hover:scale-105 aspect-[4/3] flex flex-col justify-center items-center p-2 overflow-hidden relative text-center">
                  {combo.imageUrl ? (
                     <Image src={combo.imageUrl} alt={combo.name} fill={true} objectFit="cover" className="opacity-80 group-hover:opacity-100 transition-opacity" />
                  ) : (
@@ -167,6 +167,7 @@ export default function HomePage() {
         <div className="space-y-8">
             {papers && papers.length > 0 && (
               <div className="space-y-4">
+                  <h2 className="text-xl font-headline font-bold gradient-text">Subjects</h2>
                   <Accordion type="single" collapsible className="w-full space-y-4">
                       {(papers || []).map((paper, index) => (
                           <PaperItem key={paper.id} paper={paper} index={index} />
@@ -179,9 +180,6 @@ export default function HomePage() {
               <div>
                    <div className="flex justify-between items-center mb-4">
                       <h2 className="text-xl font-headline font-bold gradient-text">Important Notes & Tricks</h2>
-                       <Link href="/combos">
-                          <Button variant="ghost" size="sm" className="text-primary hover:bg-primary/10">सभी देखें <ChevronRight className="w-4 h-4 ml-1"/></Button>
-                      </Link>
                   </div>
                   <div className="grid grid-cols-3 gap-4">
                       {recentCombos.map((combo, index) => (
@@ -195,3 +193,5 @@ export default function HomePage() {
     </AppLayout>
   );
 }
+
+    

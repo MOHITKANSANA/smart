@@ -13,13 +13,13 @@ import {
   orderBy,
   deleteDoc,
   getDocs,
+  writeBatch
 } from "firebase/firestore";
 import {
   useFirestore,
   useCollection,
   useMemoFirebase,
 } from "@/firebase";
-import { addDocumentNonBlocking, setDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import { AppLayout } from "@/components/app-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -52,6 +52,7 @@ import type { Combo, PdfDocument } from "@/lib/types";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
+import { addDoc, setDoc } from "firebase/firestore";
 
 const comboSchema = z.object({
   id: z.string().optional(),
@@ -99,10 +100,10 @@ function ComboForm({ combo, allPdfs, onFinished }: { combo?: Combo | null, allPd
 
       if (combo) { // Editing
         const comboRef = doc(firestore, "combos", combo.id);
-        await setDocumentNonBlocking(comboRef, finalValues, { merge: true });
+        await setDoc(comboRef, finalValues, { merge: true });
         toast({ title: "सफलता!", description: `कॉम्बो "${values.name}" सफलतापूर्वक अपडेट हो गया है।` });
       } else { // Adding new
-        await addDocumentNonBlocking(collection(firestore, "combos"), { ...finalValues, createdAt: serverTimestamp() });
+        await addDoc(collection(firestore, "combos"), { ...finalValues, createdAt: serverTimestamp() });
         toast({ title: "सफलता!", description: `कॉम्बो "${values.name}" सफलतापूर्वक जोड़ दिया गया है।` });
       }
       onFinished();
@@ -160,16 +161,14 @@ export default function ManageCombosPage() {
   const { toast } = useToast();
   
   const [allPdfs, setAllPdfs] = useState<PdfDocument[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedCombo, setSelectedCombo] = useState<Combo | null>(null);
 
   const combosQuery = useMemoFirebase(() => query(collection(firestore, "combos"), orderBy("createdAt", "desc")), [firestore]);
-  const { data: combos, isLoading: combosLoading } = useCollection<Combo>(combosQuery);
+  const { data: combos, isLoading: combosLoading, setData: setCombos } = useCollection<Combo>(combosQuery);
 
   useEffect(() => {
     const fetchAllPdfs = async () => {
-      setIsLoading(true);
       let pdfs: PdfDocument[] = [];
       const subFoldersSnapshot = await getDocs(collection(firestore, 'subFolders'));
       for (const subFolderDoc of subFoldersSnapshot.docs) {
@@ -178,7 +177,6 @@ export default function ManageCombosPage() {
           pdfs = [...pdfs, ...pdfsSnapshot.docs.map(d => ({...d.data(), id: d.id } as PdfDocument))];
       }
       setAllPdfs(pdfs);
-      setIsLoading(false);
     };
 
     fetchAllPdfs();
@@ -195,10 +193,13 @@ export default function ManageCombosPage() {
     setDialogOpen(true);
   };
 
-  const handleDelete = async (combo: Combo) => {
+  const handleDelete = async (comboToDelete: Combo) => {
     try {
-      await deleteDoc(doc(firestore, "combos", combo.id));
-      toast({ title: "सफलता!", description: `कॉम्बो "${combo.name}" हटा दिया गया है।` });
+      await deleteDoc(doc(firestore, "combos", comboToDelete.id));
+      if (combos) {
+        setCombos(combos.filter(c => c.id !== comboToDelete.id));
+      }
+      toast({ title: "सफलता!", description: `कॉम्बो "${comboToDelete.name}" हटा दिया गया है।` });
     } catch (e) {
       console.error("Error deleting combo:", e);
       toast({ variant: "destructive", title: "त्रुटि!", description: "कॉम्बो को हटाने में कुछ गलत हुआ।" });
@@ -273,7 +274,11 @@ export default function ManageCombosPage() {
             <DialogHeader>
               <DialogTitle>{selectedCombo ? 'कॉम्बो एडिट करें' : 'नया कॉम्बो जोड़ें'}</DialogTitle>
             </DialogHeader>
-            <ComboForm combo={selectedCombo} allPdfs={allPdfs} onFinished={() => setDialogOpen(false)} />
+            <ComboForm combo={selectedCombo} allPdfs={allPdfs} onFinished={() => {
+                setDialogOpen(false);
+                // Simple way to force a re-render of the list, not ideal but works
+                router.refresh(); 
+            }} />
           </DialogContent>
         </Dialog>
 
@@ -281,3 +286,5 @@ export default function ManageCombosPage() {
     </AppLayout>
   );
 }
+
+    

@@ -14,6 +14,8 @@ import {
   deleteDoc,
   writeBatch,
   getDocs,
+  setDoc,
+  addDoc
 } from "firebase/firestore";
 import {
   useFirestore,
@@ -21,7 +23,6 @@ import {
   useUser,
   useMemoFirebase,
 } from "@/firebase";
-import { addDocumentNonBlocking, setDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import { AppLayout } from "@/components/app-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -66,7 +67,8 @@ function PaperForm({ paper, onFinished }: { paper?: Paper | null, onFinished: ()
   const { toast } = useToast();
   const firestore = useFirestore();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { data: papers } = useCollection<Paper>(query(collection(firestore, "papers")));
+  const papersQuery = useMemoFirebase(() => query(collection(firestore, "papers")), [firestore]);
+  const { data: papers } = useCollection<Paper>(papersQuery);
 
   const form = useForm<z.infer<typeof paperSchema>>({
     resolver: zodResolver(paperSchema),
@@ -85,11 +87,11 @@ function PaperForm({ paper, onFinished }: { paper?: Paper | null, onFinished: ()
     try {
       if (paper) { // Editing existing paper
         const paperRef = doc(firestore, "papers", paper.id);
-        await setDocumentNonBlocking(paperRef, values, { merge: true });
+        await setDoc(paperRef, values, { merge: true });
         toast({ title: "सफलता!", description: `विषय "${values.name}" सफलतापूर्वक अपडेट हो गया है।` });
       } else { // Adding new paper
         const newPaper = { ...values, createdAt: serverTimestamp() };
-        await addDocumentNonBlocking(collection(firestore, "papers"), newPaper);
+        await addDoc(collection(firestore, "papers"), newPaper);
         toast({ title: "सफलता!", description: `विषय "${values.name}" सफलतापूर्वक जोड़ दिया गया है।` });
       }
       onFinished();
@@ -119,7 +121,7 @@ export default function ManagePapersPage() {
   const firestore = useFirestore();
   const { toast } = useToast();
   const papersQuery = useMemoFirebase(() => query(collection(firestore, "papers"), orderBy("paperNumber")), [firestore]);
-  const { data: papers, isLoading: papersLoading } = useCollection<Paper>(papersQuery);
+  const { data: papers, isLoading: papersLoading, setData: setPapers } = useCollection<Paper>(papersQuery);
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedPaper, setSelectedPaper] = useState<Paper | null>(null);
@@ -134,12 +136,11 @@ export default function ManagePapersPage() {
     setDialogOpen(true);
   };
 
-  const handleDelete = async (paper: Paper) => {
+  const handleDelete = async (paperToDelete: Paper) => {
     try {
         const batch = writeBatch(firestore);
 
-        // Recursively find and delete all nested documents
-        const tabsSnapshot = await getDocs(collection(firestore, `papers/${paper.id}/tabs`));
+        const tabsSnapshot = await getDocs(collection(firestore, `papers/${paperToDelete.id}/tabs`));
         for (const tabDoc of tabsSnapshot.docs) {
             const subFoldersSnapshot = await getDocs(collection(firestore, `tabs/${tabDoc.id}/subFolders`));
             for (const subFolderDoc of subFoldersSnapshot.docs) {
@@ -150,12 +151,16 @@ export default function ManagePapersPage() {
             batch.delete(tabDoc.ref);
         }
 
-        const paperRef = doc(firestore, 'papers', paper.id);
+        const paperRef = doc(firestore, 'papers', paperToDelete.id);
         batch.delete(paperRef);
         
         await batch.commit();
 
-        toast({ title: "सफलता!", description: `विषय "${paper.name}" और उसका सारा कंटेंट हटा दिया गया है।` });
+        if(papers) {
+          setPapers(papers.filter(p => p.id !== paperToDelete.id));
+        }
+
+        toast({ title: "सफलता!", description: `विषय "${paperToDelete.name}" और उसका सारा कंटेंट हटा दिया गया है।` });
     } catch (e) {
         console.error("Error deleting paper:", e);
         toast({ variant: "destructive", title: "त्रुटि!", description: "विषय को हटाने में कुछ गलत हुआ।" });
@@ -221,7 +226,10 @@ export default function ManagePapersPage() {
             <DialogHeader>
               <DialogTitle>{selectedPaper ? 'विषय एडिट करें' : 'नया विषय जोड़ें'}</DialogTitle>
             </DialogHeader>
-            <PaperForm paper={selectedPaper} onFinished={() => setDialogOpen(false)} />
+            <PaperForm paper={selectedPaper} onFinished={() => {
+                setDialogOpen(false);
+                router.refresh();
+            }} />
           </DialogContent>
         </Dialog>
 
@@ -229,3 +237,5 @@ export default function ManagePapersPage() {
     </AppLayout>
   );
 }
+
+    

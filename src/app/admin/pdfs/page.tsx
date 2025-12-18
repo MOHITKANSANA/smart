@@ -13,13 +13,14 @@ import {
   orderBy,
   deleteDoc,
   getDocs,
+  setDoc,
+  addDoc
 } from "firebase/firestore";
 import {
   useFirestore,
   useCollection,
   useMemoFirebase,
 } from "@/firebase";
-import { addDocumentNonBlocking, setDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import { AppLayout } from "@/components/app-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -133,14 +134,14 @@ function PdfForm({ pdf, onFinished }: { pdf?: PdfDocument | null, onFinished: ()
       if (pdf && pdf.subFolderId !== subFolderId) {
         // Moving document
         await deleteDoc(doc(firestore, `subFolders/${pdf.subFolderId}/pdfDocuments`, pdf.id));
-        await setDocumentNonBlocking(doc(firestore, `subFolders/${subFolderId}/pdfDocuments`, pdf.id), { ...finalValues, createdAt: serverTimestamp() });
+        await setDoc(doc(firestore, `subFolders/${subFolderId}/pdfDocuments`, pdf.id), { ...finalValues, createdAt: serverTimestamp() });
         toast({ title: "सफलता!", description: `PDF "${values.name}" सफलतापूर्वक मूव और अपडेट हो गया है।` });
       } else if (pdf) { // Editing
         const pdfRef = doc(firestore, `subFolders/${subFolderId}/pdfDocuments`, pdf.id);
-        await setDocumentNonBlocking(pdfRef, finalValues, { merge: true });
+        await setDoc(pdfRef, finalValues, { merge: true });
         toast({ title: "सफलता!", description: `PDF "${values.name}" सफलतापूर्वक अपडेट हो गया है।` });
       } else { // Adding new
-        await addDocumentNonBlocking(collection(firestore, `subFolders/${subFolderId}/pdfDocuments`), { ...finalValues, createdAt: serverTimestamp() });
+        await addDoc(collection(firestore, `subFolders/${subFolderId}/pdfDocuments`), { ...finalValues, createdAt: serverTimestamp() });
         toast({ title: "सफलता!", description: `PDF "${values.name}" सफलतापूर्वक जोड़ दिया गया है।` });
       }
       onFinished();
@@ -188,9 +189,8 @@ export default function ManagePdfsPage() {
   const [papers, setPapers] = useState<Paper[]>([]);
   const [tabs, setTabs] = useState<Tab[]>([]);
   const [subFolders, setSubFolders] = useState<SubFolder[]>([]);
-
-  useEffect(() => {
-    const fetchData = async () => {
+  
+  const fetchAllData = async () => {
       setIsLoading(true);
       const papersSnapshot = await getDocs(query(collection(firestore, "papers"), orderBy("paperNumber")));
       const papersData = papersSnapshot.docs.map(d => ({ ...d.data(), id: d.id } as Paper));
@@ -198,7 +198,7 @@ export default function ManagePdfsPage() {
 
       const allTabs: Tab[] = [];
       const allSubFolders: SubFolder[] = [];
-      const allPdfs: PdfDocument[] = [];
+      const allPdfsData: PdfDocument[] = [];
 
       for (const paper of papersData) {
         const tabsSnapshot = await getDocs(query(collection(firestore, `papers/${paper.id}/tabs`), orderBy("name")));
@@ -211,16 +211,18 @@ export default function ManagePdfsPage() {
             for (const subFolder of subFoldersData) {
                 const pdfsSnapshot = await getDocs(query(collection(firestore, `subFolders/${subFolder.id}/pdfDocuments`), orderBy("name")));
                 const pdfsData = pdfsSnapshot.docs.map(d => ({ ...d.data(), id: d.id } as PdfDocument));
-                allPdfs.push(...pdfsData);
+                allPdfsData.push(...pdfsData);
             }
         }
       }
       setTabs(allTabs);
       setSubFolders(allSubFolders);
-      setAllPdfs(allPdfs);
+      setAllPdfs(allPdfsData);
       setIsLoading(false);
     };
-    fetchData();
+
+  useEffect(() => {
+    fetchAllData();
   }, [firestore]);
 
 
@@ -234,10 +236,11 @@ export default function ManagePdfsPage() {
     setDialogOpen(true);
   };
 
-  const handleDelete = async (pdf: PdfDocument) => {
+  const handleDelete = async (pdfToDelete: PdfDocument) => {
     try {
-      await deleteDoc(doc(firestore, `subFolders/${pdf.subFolderId}/pdfDocuments`, pdf.id));
-      toast({ title: "सफलता!", description: `PDF "${pdf.name}" हटा दिया गया है।` });
+      await deleteDoc(doc(firestore, `subFolders/${pdfToDelete.subFolderId}/pdfDocuments`, pdfToDelete.id));
+      setAllPdfs(allPdfs.filter(p => p.id !== pdfToDelete.id));
+      toast({ title: "सफलता!", description: `PDF "${pdfToDelete.name}" हटा दिया गया है।` });
     } catch (e) {
       console.error("Error deleting pdf:", e);
       toast({ variant: "destructive", title: "त्रुटि!", description: "PDF को हटाने में कुछ गलत हुआ।" });
@@ -306,10 +309,15 @@ export default function ManagePdfsPage() {
             <DialogHeader>
               <DialogTitle>{selectedPdf ? 'PDF एडिट करें' : 'नया PDF जोड़ें'}</DialogTitle>
             </DialogHeader>
-            <PdfForm pdf={selectedPdf} onFinished={() => setDialogOpen(false)} />
+            <PdfForm pdf={selectedPdf} onFinished={() => {
+                setDialogOpen(false);
+                fetchAllData();
+            }} />
           </DialogContent>
         </Dialog>
       </main>
     </AppLayout>
   );
 }
+
+    

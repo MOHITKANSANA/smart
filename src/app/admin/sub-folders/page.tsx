@@ -13,14 +13,15 @@ import {
   orderBy,
   deleteDoc,
   getDocs,
-  writeBatch
+  writeBatch,
+  setDoc,
+  addDoc
 } from "firebase/firestore";
 import {
   useFirestore,
   useCollection,
   useMemoFirebase,
 } from "@/firebase";
-import { addDocumentNonBlocking, setDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import { AppLayout } from "@/components/app-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -107,17 +108,16 @@ function SubFolderForm({ subFolder, onFinished }: { subFolder?: SubFolder | null
       const { tabId, paperId, ...subFolderData } = values;
       
       if (subFolder && subFolder.tabId !== tabId) {
-        // Moving document is complex. For now, just update.
-        await setDocumentNonBlocking(doc(firestore, `tabs/${subFolder.tabId}/subFolders`, subFolder.id), values, { merge: true });
+        await setDoc(doc(firestore, `tabs/${subFolder.tabId}/subFolders`, subFolder.id), values, { merge: true });
         toast({ title: "सफलता!", description: `सब-फोल्डर "${values.name}" सफलतापूर्वक अपडेट हो गया है।` });
 
       } else if (subFolder) { // Editing existing
         const subFolderRef = doc(firestore, `tabs/${tabId}/subFolders`, subFolder.id);
-        await setDocumentNonBlocking(subFolderRef, values, { merge: true });
+        await setDoc(subFolderRef, values, { merge: true });
         toast({ title: "सफलता!", description: `सब-फोल्डर "${values.name}" सफलतापूर्वक अपडेट हो गया है।` });
       } else { // Adding new
         const newSubFolder = { ...subFolderData, paperId, tabId, createdAt: serverTimestamp() };
-        await addDocumentNonBlocking(collection(firestore, `tabs/${tabId}/subFolders`), newSubFolder);
+        await addDoc(collection(firestore, `tabs/${tabId}/subFolders`), newSubFolder);
         toast({ title: "सफलता!", description: `सब-फोल्डर "${values.name}" सफलतापूर्वक जोड़ दिया गया है।` });
       }
       onFinished();
@@ -158,15 +158,14 @@ export default function ManageSubFoldersPage() {
   const [papers, setPapers] = useState<Paper[]>([]);
   const [tabs, setTabs] = useState<Tab[]>([]);
 
-  useEffect(() => {
-    const fetchData = async () => {
+  const fetchData = async () => {
       setIsLoading(true);
       const papersSnapshot = await getDocs(query(collection(firestore, "papers"), orderBy("paperNumber")));
       const papersData = papersSnapshot.docs.map(d => ({ ...d.data(), id: d.id } as Paper));
       setPapers(papersData);
 
       const allTabs: Tab[] = [];
-      const allSubFolders: SubFolder[] = [];
+      const allSubFoldersData: SubFolder[] = [];
 
       for (const paper of papersData) {
         const tabsSnapshot = await getDocs(query(collection(firestore, `papers/${paper.id}/tabs`), orderBy("name")));
@@ -175,13 +174,15 @@ export default function ManageSubFoldersPage() {
         for (const tab of tabsData) {
             const subFoldersSnapshot = await getDocs(query(collection(firestore, `tabs/${tab.id}/subFolders`), orderBy("name")));
             const subFoldersData = subFoldersSnapshot.docs.map(d => ({ ...d.data(), id: d.id } as SubFolder));
-            allSubFolders.push(...subFoldersData);
+            allSubFoldersData.push(...subFoldersData);
         }
       }
       setTabs(allTabs);
-      setAllSubFolders(allSubFolders);
+      setAllSubFolders(allSubFoldersData);
       setIsLoading(false);
     };
+
+  useEffect(() => {
     fetchData();
   }, [firestore]);
 
@@ -196,18 +197,19 @@ export default function ManageSubFoldersPage() {
     setDialogOpen(true);
   };
 
-  const handleDelete = async (subFolder: SubFolder) => {
+  const handleDelete = async (subFolderToDelete: SubFolder) => {
     try {
         const batch = writeBatch(firestore);
-        const subFolderRef = doc(firestore, `tabs/${subFolder.tabId}/subFolders`, subFolder.id);
+        const subFolderRef = doc(firestore, `tabs/${subFolderToDelete.tabId}/subFolders`, subFolderToDelete.id);
 
-        const pdfsSnapshot = await getDocs(collection(firestore, `subFolders/${subFolder.id}/pdfDocuments`));
+        const pdfsSnapshot = await getDocs(collection(firestore, `subFolders/${subFolderToDelete.id}/pdfDocuments`));
         pdfsSnapshot.forEach(pdfDoc => batch.delete(pdfDoc.ref));
         
         batch.delete(subFolderRef);
         
         await batch.commit();
-        toast({ title: "सफलता!", description: `सब-फोल्डर "${subFolder.name}" हटा दिया गया है।` });
+        setAllSubFolders(allSubFolders.filter(sf => sf.id !== subFolderToDelete.id));
+        toast({ title: "सफलता!", description: `सब-फोल्डर "${subFolderToDelete.name}" हटा दिया गया है।` });
     } catch (e) {
         console.error("Error deleting sub-folder:", e);
         toast({ variant: "destructive", title: "त्रुटि!", description: "सब-फोल्डर को हटाने में कुछ गलत हुआ।" });
@@ -277,7 +279,10 @@ export default function ManageSubFoldersPage() {
             <DialogHeader>
               <DialogTitle>{selectedSubFolder ? 'सब-फोल्डर एडिट करें' : 'नया सब-फोल्डर जोड़ें'}</DialogTitle>
             </DialogHeader>
-            <SubFolderForm subFolder={selectedSubFolder} onFinished={() => setDialogOpen(false)} />
+            <SubFolderForm subFolder={selectedSubFolder} onFinished={() => {
+                setDialogOpen(false);
+                fetchData();
+            }} />
           </DialogContent>
         </Dialog>
 
@@ -285,3 +290,5 @@ export default function ManageSubFoldersPage() {
     </AppLayout>
   );
 }
+
+    

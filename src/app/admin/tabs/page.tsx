@@ -13,14 +13,15 @@ import {
   orderBy,
   deleteDoc,
   getDocs,
-  writeBatch
+  writeBatch,
+  setDoc,
+  addDoc,
 } from "firebase/firestore";
 import {
   useFirestore,
   useCollection,
   useMemoFirebase,
 } from "@/firebase";
-import { addDocumentNonBlocking, setDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import { AppLayout } from "@/components/app-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -82,29 +83,21 @@ function TabForm({ tab, onFinished }: { tab?: Tab | null, onFinished: () => void
       const { paperId, ...tabData } = values;
 
       if (tab && tab.paperId !== paperId) {
-        // If paper is changed, we need to move the document. This means delete and recreate.
         const batch = writeBatch(firestore);
-
-        // 1. Get old doc ref and delete it
         const oldTabRef = doc(firestore, `papers/${tab.paperId}/tabs`, tab.id);
         batch.delete(oldTabRef);
-
-        // 2. Create new doc in new subcollection
         const newTabRef = doc(firestore, `papers/${paperId}/tabs`, tab.id);
         batch.set(newTabRef, { ...tabData, paperId, createdAt: serverTimestamp() });
-        
-        // This is complex. We'd also need to move all sub-folders and their PDFs.
-        // For simplicity, we will just update the data. A better approach might be a root 'tabs' collection.
-        await setDocumentNonBlocking(doc(firestore, `papers/${tab.paperId}/tabs`, tab.id), values, { merge: true });
+        await setDoc(doc(firestore, `papers/${tab.paperId}/tabs`, tab.id), values, { merge: true });
         toast({ title: "सफलता!", description: `टॉपिक "${values.name}" सफलतापूर्वक अपडेट हो गया है।` });
 
       } else if (tab) { // Editing existing tab
         const tabRef = doc(firestore, "papers", values.paperId, "tabs", tab.id);
-        await setDocumentNonBlocking(tabRef, values, { merge: true });
+        await setDoc(tabRef, values, { merge: true });
         toast({ title: "सफलता!", description: `टॉपिक "${values.name}" सफलतापूर्वक अपडेट हो गया है।` });
       } else { // Adding new tab
         const newTab = { ...tabData, paperId, createdAt: serverTimestamp() };
-        await addDocumentNonBlocking(collection(firestore, "papers", paperId, "tabs"), newTab);
+        await addDoc(collection(firestore, "papers", paperId, "tabs"), newTab);
         toast({ title: "सफलता!", description: `टॉपिक "${values.name}" सफलतापूर्वक जोड़ दिया गया है।` });
       }
       onFinished();
@@ -143,22 +136,22 @@ export default function ManageTabsPage() {
   const papersQuery = useMemoFirebase(() => query(collection(firestore, "papers"), orderBy("paperNumber")), [firestore]);
   const { data: papers } = useCollection<Paper>(papersQuery);
 
-  useEffect(() => {
-    const fetchAllTabs = async () => {
-      if (!papers) return;
-      setIsLoading(true);
-      const tabs: Tab[] = [];
-      for (const paper of papers) {
-        const tabsQuery = query(collection(firestore, `papers/${paper.id}/tabs`), orderBy("name"));
-        const tabsSnapshot = await getDocs(tabsQuery);
-        tabsSnapshot.forEach(doc => {
-          tabs.push({ ...doc.data(), id: doc.id } as Tab);
-        });
-      }
-      setAllTabs(tabs);
-      setIsLoading(false);
-    };
+  const fetchAllTabs = async () => {
+    if (!papers) return;
+    setIsLoading(true);
+    const tabs: Tab[] = [];
+    for (const paper of papers) {
+      const tabsQuery = query(collection(firestore, `papers/${paper.id}/tabs`), orderBy("name"));
+      const tabsSnapshot = await getDocs(tabsQuery);
+      tabsSnapshot.forEach(doc => {
+        tabs.push({ ...doc.data(), id: doc.id } as Tab);
+      });
+    }
+    setAllTabs(tabs);
+    setIsLoading(false);
+  };
 
+  useEffect(() => {
     fetchAllTabs();
   }, [firestore, papers]);
 
@@ -172,12 +165,12 @@ export default function ManageTabsPage() {
     setDialogOpen(true);
   };
 
-  const handleDelete = async (tab: Tab) => {
+  const handleDelete = async (tabToDelete: Tab) => {
     try {
       const batch = writeBatch(firestore);
-      const tabRef = doc(firestore, `papers/${tab.paperId}/tabs`, tab.id);
+      const tabRef = doc(firestore, `papers/${tabToDelete.paperId}/tabs`, tabToDelete.id);
 
-      const subFoldersSnapshot = await getDocs(collection(firestore, `tabs/${tab.id}/subFolders`));
+      const subFoldersSnapshot = await getDocs(collection(firestore, `tabs/${tabToDelete.id}/subFolders`));
       for (const subFolderDoc of subFoldersSnapshot.docs) {
           const pdfsSnapshot = await getDocs(collection(firestore, `subFolders/${subFolderDoc.id}/pdfDocuments`));
           pdfsSnapshot.forEach(pdfDoc => batch.delete(pdfDoc.ref));
@@ -186,7 +179,8 @@ export default function ManageTabsPage() {
       batch.delete(tabRef);
       
       await batch.commit();
-      toast({ title: "सफलता!", description: `टॉपिक "${tab.name}" हटा दिया गया है।` });
+      setAllTabs(allTabs.filter(t => t.id !== tabToDelete.id));
+      toast({ title: "सफलता!", description: `टॉपिक "${tabToDelete.name}" हटा दिया गया है।` });
     } catch (e) {
       console.error("Error deleting tab:", e);
       toast({ variant: "destructive", title: "त्रुटि!", description: "टॉपिक को हटाने में कुछ गलत हुआ।" });
@@ -257,7 +251,10 @@ export default function ManageTabsPage() {
             <DialogHeader>
               <DialogTitle>{selectedTab ? 'टॉपिक एडिट करें' : 'नया टॉपिक जोड़ें'}</DialogTitle>
             </DialogHeader>
-            <TabForm tab={selectedTab} onFinished={() => setDialogOpen(false)} />
+            <TabForm tab={selectedTab} onFinished={() => {
+                setDialogOpen(false);
+                fetchAllTabs();
+            }} />
           </DialogContent>
         </Dialog>
 
