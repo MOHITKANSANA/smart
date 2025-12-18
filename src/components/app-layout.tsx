@@ -16,6 +16,8 @@ import {
   Sun,
   Moon,
   User as UserIcon,
+  FileText,
+  ShieldCheck,
 } from "lucide-react";
 import { useUser, useAuth, useDoc, useFirestore, useMemoFirebase } from "@/firebase";
 import { doc } from 'firebase/firestore';
@@ -59,7 +61,9 @@ const menuItems = [
 
 const bottomMenuItems = [
     { icon: Settings, label: "सेटिंग्स", href: "#" },
-    { icon: UserIcon, label: "प्रोफाइल", href: "#" }
+    { icon: UserIcon, label: "प्रोफाइल", href: "#" },
+    { icon: FileText, label: "Privacy Policy", href: "/privacy-policy" },
+    { icon: ShieldCheck, label: "Terms & Conditions", href: "/terms-conditions" },
 ]
 
 const adminItems = [
@@ -200,7 +204,8 @@ function AppSidebar() {
             {bottomMenuItems.map((item) => (
                 <SidebarMenuItem key={item.label}>
                     <Link href={item.href} className="w-full" onClick={handleMenuItemClick}>
-                        <SidebarMenuButton className="text-sidebar-foreground hover:bg-white/10 hover:text-white">
+                        <SidebarMenuButton className="text-sidebar-foreground hover:bg-white/10 hover:text-white"
+                          isActive={pathname === item.href}>
                             <item.icon className="w-5 h-5" />
                             <span>{item.label}</span>
                         </SidebarMenuButton>
@@ -309,7 +314,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   }, [isUserLoading, user, router, pathname]);
 
   // While checking auth state, show a global loader for protected pages.
-  if (isUserLoading && pathname !== '/login' && pathname !== '/') {
+  const protectedPaths = ['/home', '/combos', '/papers', '/admin', '/privacy-policy', '/terms-conditions'];
+  if (isUserLoading && protectedPaths.some(p => pathname.startsWith(p))) {
     return (
         <div className="flex h-screen items-center justify-center bg-background">
             <LoaderCircle className="w-10 h-10 animate-spin text-primary" />
