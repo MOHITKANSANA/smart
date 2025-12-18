@@ -140,7 +140,8 @@ export default function ManageTabsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedTab, setSelectedTab] = useState<Tab | null>(null);
 
-  const { data: papers } = useCollection<Paper>(query(collection(firestore, "papers"), orderBy("paperNumber")));
+  const papersQuery = useMemoFirebase(() => query(collection(firestore, "papers"), orderBy("paperNumber")), [firestore]);
+  const { data: papers } = useCollection<Paper>(papersQuery);
 
   useEffect(() => {
     const fetchAllTabs = async () => {
@@ -264,3 +265,5 @@ export default function ManageTabsPage() {
     </AppLayout>
   );
 }
+
+    
