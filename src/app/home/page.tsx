@@ -30,24 +30,19 @@ const topicGradients = [
 ];
 
 function TopicItem({ topic, index }: { topic: Tab, index: number }) {
-    const router = useRouter();
-
-    const handleClick = () => {
-        router.push(`/topics/${topic.id}?paperId=${topic.paperId}`);
-    };
-
     const gradientClass = topicGradients[index % topicGradients.length];
 
     return (
-        <button
-            className={cn(
-                "w-full text-white rounded-lg shadow-md hover:shadow-lg transition-all duration-300 transform hover:scale-105 p-4 text-center bg-gradient-to-r",
-                gradientClass
-            )}
-            onClick={handleClick}
-        >
-            <h3 className="font-semibold text-base truncate">{topic.name}</h3>
-        </button>
+        <Link href={`/topics/${topic.id}?paperId=${topic.paperId}`} className="block w-full">
+            <div
+                className={cn(
+                    "w-full text-white rounded-lg shadow-md hover:shadow-lg transition-all duration-300 transform hover:scale-105 p-4 text-center bg-gradient-to-r",
+                    gradientClass
+                )}
+            >
+                <h3 className="font-semibold text-base truncate">{topic.name}</h3>
+            </div>
+        </Link>
     );
 }
 
@@ -130,16 +125,13 @@ function ComboItem({ combo, index }: { combo: Combo; index: number }) {
     };
 
     return (
-        <a href="#" onClick={handleClick} className="block group">
-            <Card className="text-white border-0 shadow-lg hover:shadow-2xl transition-all duration-300 transform group-hover:scale-105 aspect-square flex flex-col justify-center items-center p-2 overflow-hidden relative text-center">
-                 {combo.imageUrl ? (
-                    <Image src={combo.imageUrl} alt={combo.name} fill={true} objectFit="cover" className="opacity-80 group-hover:opacity-100 transition-opacity" />
-                 ) : (
-                    <div className={cn("absolute inset-0 bg-gradient-to-br", gradientClass)} />
-                 )}
+        <a href={`/combos/${combo.id}`} onClick={handleClick} className="block group">
+            <Card className="text-white border-white/10 shadow-lg hover:shadow-2xl transition-all duration-300 transform group-hover:scale-105 aspect-square flex flex-col justify-center items-center p-2 overflow-hidden relative text-center">
+                 <div className={cn("absolute inset-0 bg-gradient-to-br transition-all duration-500 group-hover:saturate-150", gradientClass)} />
                  <div className="absolute inset-0 bg-black/40 group-hover:bg-black/50 transition-colors"></div>
-                 <div className="z-10 p-2">
-                    <CardTitle className="text-sm font-bold line-clamp-3">{combo.name}</CardTitle>
+                 <div className="absolute inset-0 animate-pulse-slow bg-gradient-to-br from-white/10 via-transparent to-white/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                 <div className="z-10 p-2 flex items-center justify-center h-full">
+                    <CardTitle className="text-sm font-bold line-clamp-3 drop-shadow-md">{combo.name}</CardTitle>
                  </div>
             </Card>
         </a>
@@ -203,3 +195,5 @@ export default function HomePage() {
     </AppLayout>
   );
 }
+
+    
