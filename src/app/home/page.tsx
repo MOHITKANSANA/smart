@@ -106,35 +106,30 @@ function PaperItem({ paper, index }: { paper: Paper, index: number }) {
 function ComboItem({ combo, index }: { combo: Combo; index: number }) {
     const router = useRouter();
 
-    const comboGradients = [
-        'from-blue-700 to-indigo-800',
-        'from-green-600 to-teal-700',
-        'from-yellow-600 to-orange-700',
-        'from-red-600 to-pink-700',
-        'from-purple-700 to-violet-800',
-        'from-sky-600 to-cyan-700',
-        'from-rose-600 to-fuchsia-700',
-        'from-lime-600 to-emerald-700',
-        'from-amber-600 to-red-700'
+    const comboColors = [
+        'bg-indigo-500',
+        'bg-red-500',
+        'bg-purple-500',
+        'bg-green-500',
+        'bg-amber-500',
+        'bg-fuchsia-500',
+        'bg-orange-500',
+        'bg-cyan-500',
+        'bg-red-600'
     ];
-    const gradientClass = comboGradients[index % comboGradients.length];
-
-    const handleClick = (e: React.MouseEvent) => {
-        e.preventDefault();
-        router.push(`/combos/${combo.id}`);
-    };
+    const colorClass = comboColors[index % comboColors.length];
 
     return (
-        <a href={`/combos/${combo.id}`} onClick={handleClick} className="block group">
-            <Card className="text-white border-white/10 shadow-lg hover:shadow-2xl transition-all duration-300 transform group-hover:scale-105 aspect-square flex flex-col justify-center items-center p-2 overflow-hidden relative text-center">
-                 <div className={cn("absolute inset-0 bg-gradient-to-br transition-all duration-500 group-hover:saturate-150", gradientClass)} />
-                 <div className="absolute inset-0 bg-black/40 group-hover:bg-black/50 transition-colors"></div>
-                 <div className="absolute inset-0 animate-pulse-slow bg-gradient-to-br from-white/10 via-transparent to-white/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+        <Link href={`/combos/${combo.id}`} className="block group">
+            <Card className={cn(
+                "text-white border-white/10 shadow-lg hover:shadow-2xl transition-all duration-300 transform group-hover:scale-105 aspect-square flex flex-col justify-center items-center p-2 overflow-hidden relative text-center",
+                colorClass
+            )}>
                  <div className="z-10 p-2 flex items-center justify-center h-full">
                     <CardTitle className="text-sm font-bold line-clamp-3 drop-shadow-md">{combo.name}</CardTitle>
                  </div>
             </Card>
-        </a>
+        </Link>
     );
 }
 
@@ -195,5 +190,4 @@ export default function HomePage() {
     </AppLayout>
   );
 }
-
     
