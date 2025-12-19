@@ -112,15 +112,15 @@ function ComboItem({ combo, index }: { combo: Combo; index: number }) {
     const router = useRouter();
 
     const comboGradients = [
-        'from-green-400 to-blue-500',
-        'from-yellow-400 to-red-500',
-        'from-purple-500 to-pink-500',
-        'from-indigo-500 to-violet-600',
-        'from-teal-400 to-cyan-500',
-        'from-rose-500 to-fuchsia-600',
-        'from-amber-500 to-orange-600',
-        'from-lime-400 to-emerald-500',
-        'from-sky-400 to-blue-600'
+        'from-blue-700 to-indigo-800',
+        'from-green-600 to-teal-700',
+        'from-yellow-600 to-orange-700',
+        'from-red-600 to-pink-700',
+        'from-purple-700 to-violet-800',
+        'from-sky-600 to-cyan-700',
+        'from-rose-600 to-fuchsia-700',
+        'from-lime-600 to-emerald-700',
+        'from-amber-600 to-red-700'
     ];
     const gradientClass = comboGradients[index % comboGradients.length];
 
