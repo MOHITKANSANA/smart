@@ -131,14 +131,15 @@ function ComboItem({ combo, index }: { combo: Combo; index: number }) {
 
     return (
         <a href="#" onClick={handleClick} className="block group">
-            <Card className={cn(
-                "text-white border-0 shadow-lg hover:shadow-2xl transition-all duration-300 transform group-hover:scale-105 aspect-square flex flex-col justify-center items-center p-2 overflow-hidden relative text-center",
-                "bg-gradient-to-br",
-                gradientClass
-                )}>
-                 <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-colors"></div>
+            <Card className="text-white border-0 shadow-lg hover:shadow-2xl transition-all duration-300 transform group-hover:scale-105 aspect-square flex flex-col justify-center items-center p-2 overflow-hidden relative text-center">
+                 {combo.imageUrl ? (
+                    <Image src={combo.imageUrl} alt={combo.name} fill={true} objectFit="cover" className="opacity-80 group-hover:opacity-100 transition-opacity" />
+                 ) : (
+                    <div className={cn("absolute inset-0 bg-gradient-to-br", gradientClass)} />
+                 )}
+                 <div className="absolute inset-0 bg-black/40 group-hover:bg-black/50 transition-colors"></div>
                  <div className="z-10 p-2">
-                    <CardTitle className="text-lg font-bold line-clamp-3">{combo.name}</CardTitle>
+                    <CardTitle className="text-sm font-bold line-clamp-3">{combo.name}</CardTitle>
                  </div>
             </Card>
         </a>
