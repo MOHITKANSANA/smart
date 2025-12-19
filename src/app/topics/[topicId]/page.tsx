@@ -2,14 +2,15 @@
 "use client";
 
 import React from 'react';
-import { useRouter, useParams } from 'next/navigation';
-import { collection, query, orderBy, doc, getDoc } from 'firebase/firestore';
-import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { useRouter, useParams, useSearchParams } from 'next/navigation';
+import { collection, query, orderBy, doc } from 'firebase/firestore';
+import { useFirestore, useCollection, useDoc, useMemoFirebase } from '@/firebase';
 import { AppLayout } from '@/components/app-layout';
 import { LoaderCircle, Folder, Home, ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Tab, SubFolder } from '@/lib/types';
 import { Button } from '@/components/ui/button';
+import { Suspense } from 'react';
 
 const subFolderGradients = [
     'from-pink-500 to-rose-500',
@@ -41,39 +42,27 @@ function SubFolderItem({ subFolder, index }: { subFolder: SubFolder; index: numb
 }
 
 
-export default function TopicDetailPage() {
+function TopicDetailContent() {
     const firestore = useFirestore();
     const router = useRouter();
     const params = useParams();
-    const topicId = params.topicId as string;
-    
-    const [topic, setTopic] = React.useState<Tab | null>(null);
-    const [isLoadingTopic, setIsLoadingTopic] = React.useState(true);
+    const searchParams = useSearchParams();
 
-    React.useEffect(() => {
-        const fetchTopic = async () => {
-            if (!topicId) {
-                setIsLoadingTopic(false);
-                return;
-            }
-            setIsLoadingTopic(true);
-            // This is inefficient, but necessary with the current data structure.
-            // A root-level 'tabs' collection would be better.
-            const papersSnapshot = await getDoc(doc(firestore, 'tabs', topicId));
-             if (papersSnapshot.exists()) {
-                 setTopic({ ...papersSnapshot.data(), id: papersSnapshot.id } as Tab);
-             } else {
-                 setTopic(null);
-             }
-            setIsLoadingTopic(false);
-        }
-        fetchTopic();
+    const topicId = params.topicId as string;
+    const paperId = searchParams.get('paperId');
+    
+    const topicRef = useMemoFirebase(() => {
+        if (!paperId || !topicId) return null;
+        return doc(firestore, `papers/${paperId}/tabs`, topicId);
+    }, [firestore, paperId, topicId]);
+
+    const { data: topic, isLoading: isLoadingTopic } = useDoc<Tab>(topicRef);
+
+    const subFoldersQuery = useMemoFirebase(() => {
+        if (!topicId) return null;
+        return query(collection(firestore, `tabs/${topicId}/subFolders`), orderBy('name'));
     }, [firestore, topicId]);
 
-    const subFoldersQuery = useMemoFirebase(() => 
-        query(collection(firestore, `tabs/${topicId}/subFolders`), orderBy('name')), 
-        [firestore, topicId]
-    );
     const { data: subFolders, isLoading: isLoadingSubFolders } = useCollection<SubFolder>(subFoldersQuery);
     
     const isLoading = isLoadingTopic || isLoadingSubFolders;
@@ -129,4 +118,12 @@ export default function TopicDetailPage() {
             </main>
         </AppLayout>
     );
+}
+
+export default function TopicDetailPage() {
+    return (
+        <Suspense fallback={<div className="flex h-screen items-center justify-center bg-background"><LoaderCircle className="w-10 h-10 animate-spin text-primary" /></div>}>
+            <TopicDetailContent />
+        </Suspense>
+    )
 }

@@ -92,8 +92,10 @@ service cloud.firestore {
     // Root-level Tabs, SubFolders, and PDFs for easier querying
     // --------------------------------------------------------------------
      match /tabs/{tabId} {
-        allow get, list: if true;
-        allow create, update, delete: if isAdmin(); // Only admins can manage root tabs
+        // This allows reading a single tab document if you know its ID.
+        // This is useful for the topic detail page.
+        allow get: if true;
+        allow list, create, update, delete: if false; // Disallow listing/writing at the root.
 
         // --------------------------------------------------------------------
         // Sub-Folders (/tabs/{tabId}/subFolders/{subFolderId})
