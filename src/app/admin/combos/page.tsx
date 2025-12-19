@@ -46,7 +46,6 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
 import { PlusCircle, LoaderCircle, Edit, Trash2, ChevronLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Combo, PdfDocument } from "@/lib/types";
@@ -63,14 +62,13 @@ const comboSchema = z.object({
     (a) => parseFloat(z.string().parse(a)),
     z.number().positive("कीमत 0 से ज़्यादा होनी चाहिए।").optional()
   ),
-  imageUrl: z.string().url("कृपया एक मान्य इमेज URL डालें।").optional().or(z.literal('')),
-  pdfIds: z.array(z.string()).min(1, "कम से कम एक PDF चुनें।"),
+  pdfIds: z.array(z.string()).min(1, "कम से कम एक PDF चुनें।").optional().default([]),
 }).refine(data => data.accessType === 'Free' || (data.price !== undefined && data.price > 0), {
   message: "पेड कॉम्बो के लिए कीमत डालना आवश्यक है।",
   path: ["price"],
 });
 
-function ComboForm({ combo, allPdfs, onFinished }: { combo?: Combo | null, allPdfs: PdfDocument[], onFinished: () => void }) {
+function ComboForm({ combo, onFinished }: { combo?: Combo | null, onFinished: () => void }) {
   const { toast } = useToast();
   const firestore = useFirestore();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -80,13 +78,12 @@ function ComboForm({ combo, allPdfs, onFinished }: { combo?: Combo | null, allPd
     defaultValues: combo ? {
       ...combo,
       price: combo.price || 0,
-      imageUrl: combo.imageUrl || '',
+      pdfIds: combo.pdfIds || [],
     } : {
       name: "",
       description: "",
       accessType: "Free",
       price: 0,
-      imageUrl: "",
       pdfIds: [],
     },
   });
@@ -103,7 +100,6 @@ function ComboForm({ combo, allPdfs, onFinished }: { combo?: Combo | null, allPd
 
       if (combo) { // Editing
         const comboRef = doc(firestore, "combos", combo.id);
-        // When editing, we should not overwrite the createdAt field.
         const { id, ...updateData } = finalValues;
         await setDoc(comboRef, updateData, { merge: true });
         toast({ title: "सफलता!", description: `कॉम्बो "${values.name}" सफलतापूर्वक अपडेट हो गया है।` });
@@ -125,31 +121,8 @@ function ComboForm({ combo, allPdfs, onFinished }: { combo?: Combo | null, allPd
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
         <FormField control={form.control} name="name" render={({ field }) => (<FormItem><FormLabel>कॉम्बो का नाम</FormLabel><FormControl><Input placeholder="जैसे: MPSE प्रीलिम्स क्रैश कोर्स" {...field}/></FormControl><FormMessage/></FormItem>)}/>
         <FormField control={form.control} name="description" render={({ field }) => (<FormItem><FormLabel>कॉम्बो का विवरण</FormLabel><FormControl><Textarea placeholder="इस कॉम्बो में सभी महत्वपूर्ण विषयों के नोट्स हैं।" {...field}/></FormControl><FormMessage/></FormItem>)}/>
-        <FormField control={form.control} name="imageUrl" render={({ field }) => (<FormItem><FormLabel>इमेज URL (वैकल्पिक)</FormLabel><FormControl><Input placeholder="https://example.com/image.png" {...field} /></FormControl><FormMessage/></FormItem>)} />
         <FormField control={form.control} name="accessType" render={({ field }) => (<FormItem><FormLabel>एक्सेस प्रकार</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="Free">Free</SelectItem><SelectItem value="Paid">Paid</SelectItem></SelectContent></Select><FormMessage/></FormItem>)}/>
         {selectedAccessType === 'Paid' && <FormField control={form.control} name="price" render={({ field }) => (<FormItem><FormLabel>कीमत (₹ में)</FormLabel><FormControl><Input type="number" placeholder="जैसे: 499" {...field} /></FormControl><FormMessage/></FormItem>)} />}
-
-        <FormItem>
-            <FormLabel>इस कॉम्बो में PDFs चुनें</FormLabel>
-            <div className="space-y-2 max-h-[30vh] overflow-y-auto my-4 pr-4 border rounded-md p-2">
-              {allPdfs.map(pdf => (
-                  <FormField key={pdf.id} control={form.control} name="pdfIds" render={({ field }) => (
-                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-3">
-                      <FormControl><Checkbox checked={field.value?.includes(pdf.id)} onCheckedChange={(checked) => {
-                          return checked ? field.onChange([...(field.value || []), pdf.id]) : field.onChange(field.value?.filter(value => value !== pdf.id))
-                      }}/></FormControl>
-                      <div className="space-y-1 leading-none">
-                        <FormLabel>{pdf.name}</FormLabel>
-                        <p className="text-sm text-muted-foreground">{pdf.description}</p>
-                      </div>
-                    </FormItem>
-                  )}
-                />
-              ))}
-            </div>
-            <FormMessage />
-        </FormItem>
-
 
         <DialogFooter>
             <Button type="button" variant="ghost" onClick={onFinished}>रद्द करें</Button>
@@ -165,29 +138,12 @@ export default function ManageCombosPage() {
   const firestore = useFirestore();
   const { toast } = useToast();
   
-  const [allPdfs, setAllPdfs] = useState<PdfDocument[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedCombo, setSelectedCombo] = useState<Combo | null>(null);
 
   const combosQuery = useMemoFirebase(() => query(collection(firestore, "combos"), orderBy("createdAt", "desc")), [firestore]);
   const { data: combos, isLoading: combosLoading, setData: setCombos } = useCollection<Combo>(combosQuery);
-
-  const fetchPdfs = async () => {
-      let pdfs: PdfDocument[] = [];
-      const subFoldersSnapshot = await getDocs(collection(firestore, 'subFolders'));
-      for (const subFolderDoc of subFoldersSnapshot.docs) {
-          const pdfsQuery = query(collection(firestore, `subFolders/${subFolderDoc.id}/pdfDocuments`));
-          const pdfsSnapshot = await getDocs(pdfsQuery);
-          pdfs = [...pdfs, ...pdfsSnapshot.docs.map(d => ({...d.data(), id: d.id } as PdfDocument))];
-      }
-      setAllPdfs(pdfs);
-  }
-
-  useEffect(() => {
-    fetchPdfs();
-  }, [firestore]);
-
-
+  
   const handleAddNew = () => {
     setSelectedCombo(null);
     setDialogOpen(true);
@@ -212,9 +168,15 @@ export default function ManageCombosPage() {
   };
   
   const comboGradients = [
-        'from-blue-400 to-purple-500', 'from-yellow-400 to-orange-500',
-        'from-green-400 to-cyan-500', 'from-pink-400 to-red-500',
-        'from-indigo-500 to-fuchsia-600', 'from-lime-400 to-emerald-500',
+        'from-blue-700 to-indigo-800',
+        'from-green-600 to-teal-700',
+        'from-yellow-600 to-orange-700',
+        'from-red-600 to-pink-700',
+        'from-purple-700 to-violet-800',
+        'from-sky-600 to-cyan-700',
+        'from-rose-600 to-fuchsia-700',
+        'from-lime-600 to-emerald-700',
+        'from-amber-600 to-red-700'
   ];
 
   const handleFinish = () => {
@@ -225,7 +187,6 @@ export default function ManageCombosPage() {
             setCombos(snapshot.docs.map(d => ({...d.data(), id: d.id} as Combo)))
         });
     }
-    fetchPdfs(); // also refetch pdfs in case they were changed
   }
 
 
@@ -291,7 +252,7 @@ export default function ManageCombosPage() {
             <DialogHeader>
               <DialogTitle>{selectedCombo ? 'कॉम्बो एडिट करें' : 'नया कॉम्बो जोड़ें'}</DialogTitle>
             </DialogHeader>
-            <ComboForm combo={selectedCombo} allPdfs={allPdfs} onFinished={handleFinish} />
+            <ComboForm combo={selectedCombo} onFinished={handleFinish} />
           </DialogContent>
         </Dialog>
 
