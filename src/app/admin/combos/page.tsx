@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect } from "react";
 import { z } from "zod";
-import { useForm, useFieldArray } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   collection,
@@ -13,7 +13,8 @@ import {
   orderBy,
   deleteDoc,
   getDocs,
-  writeBatch
+  setDoc,
+  addDoc
 } from "firebase/firestore";
 import {
   useFirestore,
@@ -52,7 +53,6 @@ import type { Combo, PdfDocument } from "@/lib/types";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
-import { addDoc, setDoc } from "firebase/firestore";
 
 const comboSchema = z.object({
   id: z.string().optional(),
@@ -96,20 +96,25 @@ function ComboForm({ combo, allPdfs, onFinished }: { combo?: Combo | null, allPd
   async function onSubmit(values: z.infer<typeof comboSchema>) {
     setIsSubmitting(true);
     try {
-      const finalValues = { ...values, price: values.accessType === 'Free' ? 0 : values.price };
+      const finalValues = { 
+        ...values, 
+        price: values.accessType === 'Free' ? 0 : values.price 
+      };
 
       if (combo) { // Editing
         const comboRef = doc(firestore, "combos", combo.id);
-        await setDoc(comboRef, finalValues, { merge: true });
+        // When editing, we should not overwrite the createdAt field.
+        const { id, ...updateData } = finalValues;
+        await setDoc(comboRef, updateData, { merge: true });
         toast({ title: "सफलता!", description: `कॉम्बो "${values.name}" सफलतापूर्वक अपडेट हो गया है।` });
       } else { // Adding new
         await addDoc(collection(firestore, "combos"), { ...finalValues, createdAt: serverTimestamp() });
         toast({ title: "सफलता!", description: `कॉम्बो "${values.name}" सफलतापूर्वक जोड़ दिया गया है।` });
       }
       onFinished();
-    } catch (error) {
-      console.error(error);
-      toast({ variant: "destructive", title: "त्रुटि!", description: "कुछ गलत हुआ।" });
+    } catch (error: any) {
+      console.error("Error saving combo:", error);
+      toast({ variant: "destructive", title: "त्रुटि!", description: error.message || "कॉम्बो सेव करने में कुछ गलत हुआ।" });
     } finally {
       setIsSubmitting(false);
     }
@@ -167,8 +172,7 @@ export default function ManageCombosPage() {
   const combosQuery = useMemoFirebase(() => query(collection(firestore, "combos"), orderBy("createdAt", "desc")), [firestore]);
   const { data: combos, isLoading: combosLoading, setData: setCombos } = useCollection<Combo>(combosQuery);
 
-  useEffect(() => {
-    const fetchAllPdfs = async () => {
+  const fetchPdfs = async () => {
       let pdfs: PdfDocument[] = [];
       const subFoldersSnapshot = await getDocs(collection(firestore, 'subFolders'));
       for (const subFolderDoc of subFoldersSnapshot.docs) {
@@ -177,9 +181,10 @@ export default function ManageCombosPage() {
           pdfs = [...pdfs, ...pdfsSnapshot.docs.map(d => ({...d.data(), id: d.id } as PdfDocument))];
       }
       setAllPdfs(pdfs);
-    };
+  }
 
-    fetchAllPdfs();
+  useEffect(() => {
+    fetchPdfs();
   }, [firestore]);
 
 
@@ -211,6 +216,18 @@ export default function ManageCombosPage() {
         'from-green-400 to-cyan-500', 'from-pink-400 to-red-500',
         'from-indigo-500 to-fuchsia-600', 'from-lime-400 to-emerald-500',
   ];
+
+  const handleFinish = () => {
+    setDialogOpen(false);
+    // This is a simple way to refetch the data for the main collection view
+    if (combosQuery) {
+        getDocs(combosQuery).then(snapshot => {
+            setCombos(snapshot.docs.map(d => ({...d.data(), id: d.id} as Combo)))
+        });
+    }
+    fetchPdfs(); // also refetch pdfs in case they were changed
+  }
+
 
   return (
     <AppLayout>
@@ -274,11 +291,7 @@ export default function ManageCombosPage() {
             <DialogHeader>
               <DialogTitle>{selectedCombo ? 'कॉम्बो एडिट करें' : 'नया कॉम्बो जोड़ें'}</DialogTitle>
             </DialogHeader>
-            <ComboForm combo={selectedCombo} allPdfs={allPdfs} onFinished={() => {
-                setDialogOpen(false);
-                // Simple way to force a re-render of the list, not ideal but works
-                router.refresh(); 
-            }} />
+            <ComboForm combo={selectedCombo} allPdfs={allPdfs} onFinished={handleFinish} />
           </DialogContent>
         </Dialog>
 
@@ -286,5 +299,3 @@ export default function ManageCombosPage() {
     </AppLayout>
   );
 }
-
-    
