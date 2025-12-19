@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -22,7 +23,7 @@ const pdfGradients = [
 ];
 
 
-function PdfItem({ pdf, index }: { pdf: PdfDocument; index: number }) {
+function PdfItem({ pdf, index }: { pdf: DocumentData; index: number }) {
     const router = useRouter();
     const gradientClass = `bg-gradient-to-r ${pdfGradients[index % pdfGradients.length]}`;
 
@@ -39,7 +40,6 @@ function PdfItem({ pdf, index }: { pdf: PdfDocument; index: number }) {
             </div>
             <div className="flex-1">
               <p className="font-semibold text-foreground text-sm">{pdf.name}</p>
-              <p className="text-xs text-muted-foreground">{pdf.description}</p>
             </div>
           </div>
         </a>
@@ -54,43 +54,6 @@ export default function ComboDetailPage() {
     
     const comboRef = useMemoFirebase(() => doc(firestore, 'combos', comboId), [firestore, comboId]);
     const { data: combo, isLoading: isLoadingCombo } = useDoc<Combo>(comboRef);
-
-    const [pdfs, setPdfs] = useState<PdfDocument[]>([]);
-    const [isLoadingPdfs, setIsLoadingPdfs] = useState(true);
-
-    useEffect(() => {
-        const fetchPdfs = async () => {
-            if (!combo || !combo.pdfIds || combo.pdfIds.length === 0) {
-                setIsLoadingPdfs(false);
-                return;
-            }
-
-            setIsLoadingPdfs(true);
-            const fetchedPdfs: PdfDocument[] = [];
-            
-            // This is a workaround. A better data structure would be a root-level `pdfs` collection.
-            // With the current structure, we have to iterate a lot.
-             const subFoldersSnapshot = await getDocs(collection(firestore, 'subFolders'));
-            for (const subFolderDoc of subFoldersSnapshot.docs) {
-                const pdfsSnapshot = await getDocs(collection(subFolderDoc.ref, 'pdfDocuments'));
-                pdfsSnapshot.forEach(pdfDoc => {
-                    if (combo.pdfIds.includes(pdfDoc.id)) {
-                        const pdfData = { ...pdfDoc.data(), id: pdfDoc.id } as PdfDocument;
-                         if(!fetchedPdfs.find(p => p.id === pdfData.id)) {
-                           fetchedPdfs.push(pdfData);
-                        }
-                    }
-                });
-            }
-            
-            setPdfs(fetchedPdfs);
-            setIsLoadingPdfs(false);
-        };
-
-        if (combo) {
-            fetchPdfs();
-        }
-    }, [combo, firestore]);
     
     const isLoading = isLoadingCombo;
 
@@ -128,15 +91,16 @@ export default function ComboDetailPage() {
                     </Button>
                     <h1 className="font-headline text-2xl sm:text-3xl font-bold gradient-text">{combo.name}</h1>
                 </div>
-                <p className="text-muted-foreground mb-6">{combo.description}</p>
                 
-                {isLoadingPdfs ? (
+                {isLoading && (
                     <div className="flex justify-center p-8"><LoaderCircle className="w-8 h-8 animate-spin text-primary" /></div>
-                ) : !pdfs || pdfs.length === 0 ? (
+                )}
+                
+                {!isLoading && (!combo.pdfDetails || combo.pdfDetails.length === 0) ? (
                      <p className="text-center text-muted-foreground p-8">इस कॉम्बो में अभी कोई PDF नहीं है।</p>
                 ) : (
                    <div className="space-y-2">
-                       {pdfs.map((pdf, pdfIndex) => <PdfItem key={pdf.id} pdf={pdf} index={pdfIndex} />)}
+                       {combo.pdfDetails?.map((pdf: DocumentData, pdfIndex: number) => <PdfItem key={pdf.id} pdf={pdf} index={pdfIndex} />)}
                    </div>
                 )}
             </main>

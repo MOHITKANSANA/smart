@@ -184,6 +184,11 @@ export default function HomePage() {
               <div>
                    <div className="flex justify-between items-center mb-4">
                       <h2 className="text-xl font-headline font-bold gradient-text">Important Notes & Tricks</h2>
+                       <Button variant="link" asChild>
+                         <Link href="/combos">
+                           सभी देखें <ChevronRight className="ml-1 h-4 w-4" />
+                         </Link>
+                      </Button>
                   </div>
                   <div className="grid grid-cols-3 gap-4">
                       {recentCombos.map((combo, index) => (

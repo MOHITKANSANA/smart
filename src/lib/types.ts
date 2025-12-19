@@ -1,3 +1,4 @@
+
 export type PdfDocument = {
   id: string;
   name: string;
@@ -41,14 +42,20 @@ export type User = {
   role: 'student' | 'admin';
 };
 
+export type ComboPdfDetail = {
+  id: string;
+  name: string;
+  googleDriveLink: string;
+  accessType: 'Free';
+}
+
 export type Combo = {
   id: string;
   name: string;
-  description: string;
   accessType: 'Free' | 'Paid';
   price?: number;
-  pdfIds: string[];
-  pdfs?: PdfDocument[]; // Populated on the client
+  pdfIds: string[]; // This might become deprecated in favor of pdfDetails
+  pdfDetails?: ComboPdfDetail[]; // Array of PDF details stored directly in the combo
   imageUrl?: string;
   createdAt: any; // Firestore ServerTimestamp
 };
