@@ -82,9 +82,9 @@ function TopicsForPaper({ paperId }: { paperId: string }) {
 }
 
 const paperGradients = [
-    'from-blue-600 to-indigo-700',
-    'from-purple-600 to-pink-700',
-    'from-green-600 to-teal-700',
+    'from-blue-700 to-indigo-800',
+    'from-purple-700 to-pink-700',
+    'from-green-700 to-teal-800',
     'from-orange-600 to-red-700',
     'from-cyan-600 to-sky-700',
     'from-rose-600 to-fuchsia-700',
@@ -131,15 +131,14 @@ function ComboItem({ combo, index }: { combo: Combo; index: number }) {
 
     return (
         <a href="#" onClick={handleClick} className="block group">
-            <Card className="text-white border-0 shadow-lg hover:shadow-2xl transition-all duration-300 transform group-hover:scale-105 aspect-square flex flex-col justify-center items-center p-2 overflow-hidden relative text-center">
-                 {combo.imageUrl ? (
-                    <Image src={combo.imageUrl} alt={combo.name} fill={true} objectFit="cover" className="opacity-80 group-hover:opacity-100 transition-opacity" />
-                 ) : (
-                    <div className={cn("absolute inset-0 bg-gradient-to-br", gradientClass)} />
-                 )}
-                 <div className="absolute inset-0 bg-black/40 group-hover:bg-black/50 transition-colors"></div>
+            <Card className={cn(
+                "text-white border-0 shadow-lg hover:shadow-2xl transition-all duration-300 transform group-hover:scale-105 aspect-square flex flex-col justify-center items-center p-2 overflow-hidden relative text-center",
+                "bg-gradient-to-br",
+                gradientClass
+                )}>
+                 <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-colors"></div>
                  <div className="z-10 p-2">
-                    <CardTitle className="text-sm font-bold line-clamp-3">{combo.name}</CardTitle>
+                    <CardTitle className="text-lg font-bold line-clamp-3">{combo.name}</CardTitle>
                  </div>
             </Card>
         </a>
@@ -185,11 +184,8 @@ export default function HomePage() {
               <div>
                    <div className="flex justify-between items-center mb-4">
                       <h2 className="text-xl font-headline font-bold gradient-text">Important Notes & Tricks</h2>
-                        <Button variant="outline" size="sm" onClick={() => router.push('/combos')}>
-                            सभी देखें <ChevronRight className="w-4 h-4 ml-1" />
-                        </Button>
                   </div>
-                  <div className="grid grid-cols-3 gap-2 sm:gap-4">
+                  <div className="grid grid-cols-3 gap-4">
                       {recentCombos.map((combo, index) => (
                           <ComboItem key={combo.id} combo={combo} index={index} />
                       ))}

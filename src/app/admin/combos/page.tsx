@@ -48,7 +48,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PlusCircle, LoaderCircle, Edit, Trash2, ChevronLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import type { Combo, PdfDocument } from "@/lib/types";
+import type { Combo } from "@/lib/types";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
@@ -56,13 +56,14 @@ import { cn } from "@/lib/utils";
 const comboSchema = z.object({
   id: z.string().optional(),
   name: z.string().min(1, "कॉम्बो का नाम आवश्यक है।"),
-  description: z.string().min(1, "कॉम्बो का विवरण आवश्यक है।"),
   accessType: z.enum(["Free", "Paid"]),
   price: z.preprocess(
-    (a) => parseFloat(z.string().parse(a)),
+    (a) => {
+        if (!a || a === "") return undefined;
+        return parseFloat(z.string().parse(a));
+    },
     z.number().positive("कीमत 0 से ज़्यादा होनी चाहिए।").optional()
   ),
-  pdfIds: z.array(z.string()).min(1, "कम से कम एक PDF चुनें।").optional().default([]),
 }).refine(data => data.accessType === 'Free' || (data.price !== undefined && data.price > 0), {
   message: "पेड कॉम्बो के लिए कीमत डालना आवश्यक है।",
   path: ["price"],
@@ -77,14 +78,11 @@ function ComboForm({ combo, onFinished }: { combo?: Combo | null, onFinished: ()
     resolver: zodResolver(comboSchema),
     defaultValues: combo ? {
       ...combo,
-      price: combo.price || 0,
-      pdfIds: combo.pdfIds || [],
+      price: combo.price || undefined,
     } : {
       name: "",
-      description: "",
       accessType: "Free",
-      price: 0,
-      pdfIds: [],
+      price: undefined,
     },
   });
 
@@ -93,18 +91,21 @@ function ComboForm({ combo, onFinished }: { combo?: Combo | null, onFinished: ()
   async function onSubmit(values: z.infer<typeof comboSchema>) {
     setIsSubmitting(true);
     try {
-      const finalValues = { 
-        ...values, 
-        price: values.accessType === 'Free' ? 0 : values.price 
+      const finalValues: Omit<Combo, 'id' | 'createdAt'> & {createdAt?: any} = { 
+        name: values.name,
+        accessType: values.accessType,
+        price: values.accessType === 'Free' ? 0 : values.price,
+        pdfIds: combo?.pdfIds || [], // Keep existing pdfIds or initialize as empty
       };
 
       if (combo) { // Editing
         const comboRef = doc(firestore, "combos", combo.id);
-        const { id, ...updateData } = finalValues;
+        const { id, ...updateData } = { ...combo, ...values, price: values.accessType === 'Free' ? 0 : values.price};
         await setDoc(comboRef, updateData, { merge: true });
         toast({ title: "सफलता!", description: `कॉम्बो "${values.name}" सफलतापूर्वक अपडेट हो गया है।` });
       } else { // Adding new
-        await addDoc(collection(firestore, "combos"), { ...finalValues, createdAt: serverTimestamp() });
+        finalValues.createdAt = serverTimestamp();
+        await addDoc(collection(firestore, "combos"), finalValues);
         toast({ title: "सफलता!", description: `कॉम्बो "${values.name}" सफलतापूर्वक जोड़ दिया गया है।` });
       }
       onFinished();
@@ -120,9 +121,8 @@ function ComboForm({ combo, onFinished }: { combo?: Combo | null, onFinished: ()
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
         <FormField control={form.control} name="name" render={({ field }) => (<FormItem><FormLabel>कॉम्बो का नाम</FormLabel><FormControl><Input placeholder="जैसे: MPSE प्रीलिम्स क्रैश कोर्स" {...field}/></FormControl><FormMessage/></FormItem>)}/>
-        <FormField control={form.control} name="description" render={({ field }) => (<FormItem><FormLabel>कॉम्बो का विवरण</FormLabel><FormControl><Textarea placeholder="इस कॉम्बो में सभी महत्वपूर्ण विषयों के नोट्स हैं।" {...field}/></FormControl><FormMessage/></FormItem>)}/>
         <FormField control={form.control} name="accessType" render={({ field }) => (<FormItem><FormLabel>एक्सेस प्रकार</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="Free">Free</SelectItem><SelectItem value="Paid">Paid</SelectItem></SelectContent></Select><FormMessage/></FormItem>)}/>
-        {selectedAccessType === 'Paid' && <FormField control={form.control} name="price" render={({ field }) => (<FormItem><FormLabel>कीमत (₹ में)</FormLabel><FormControl><Input type="number" placeholder="जैसे: 499" {...field} /></FormControl><FormMessage/></FormItem>)} />}
+        {selectedAccessType === 'Paid' && <FormField control={form.control} name="price" render={({ field }) => (<FormItem><FormLabel>कीमत (₹ में)</FormLabel><FormControl><Input type="number" placeholder="जैसे: 499" {...field} value={field.value || ''} /></FormControl><FormMessage/></FormItem>)} />}
 
         <DialogFooter>
             <Button type="button" variant="ghost" onClick={onFinished}>रद्द करें</Button>
