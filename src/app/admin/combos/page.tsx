@@ -24,7 +24,6 @@ import {
 import { AppLayout } from "@/components/app-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import {
   Dialog,
@@ -91,21 +90,25 @@ function ComboForm({ combo, onFinished }: { combo?: Combo | null, onFinished: ()
   async function onSubmit(values: z.infer<typeof comboSchema>) {
     setIsSubmitting(true);
     try {
-      const finalValues: Omit<Combo, 'id' | 'createdAt'> & {createdAt?: any} = { 
+      const finalValues: Omit<Combo, 'id' | 'createdAt' | 'description' | 'imageUrl' | 'pdfs'> & {createdAt?: any} = { 
         name: values.name,
         accessType: values.accessType,
         price: values.accessType === 'Free' ? 0 : values.price,
-        pdfIds: combo?.pdfIds || [], // Keep existing pdfIds or initialize as empty
+        pdfIds: combo?.pdfIds || [],
       };
 
       if (combo) { // Editing
         const comboRef = doc(firestore, "combos", combo.id);
-        const { id, ...updateData } = { ...combo, ...values, price: values.accessType === 'Free' ? 0 : values.price};
+        // Ensure we don't overwrite existing pdfIds or description by merging with existing combo data first
+        const updateData = { ...combo, ...finalValues };
         await setDoc(comboRef, updateData, { merge: true });
         toast({ title: "सफलता!", description: `कॉम्बो "${values.name}" सफलतापूर्वक अपडेट हो गया है।` });
       } else { // Adding new
-        finalValues.createdAt = serverTimestamp();
-        await addDoc(collection(firestore, "combos"), finalValues);
+        await addDoc(collection(firestore, "combos"), {
+          ...finalValues,
+          description: "", // Add empty description for new combos
+          createdAt: serverTimestamp()
+        });
         toast({ title: "सफलता!", description: `कॉम्बो "${values.name}" सफलतापूर्वक जोड़ दिया गया है।` });
       }
       onFinished();
@@ -260,3 +263,5 @@ export default function ManageCombosPage() {
     </AppLayout>
   );
 }
+
+    
