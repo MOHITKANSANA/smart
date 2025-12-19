@@ -13,12 +13,12 @@ import { Button } from '@/components/ui/button';
 import { Suspense } from 'react';
 
 const subFolderGradients = [
-    'from-pink-500 to-rose-500',
-    'from-amber-500 to-orange-500',
-    'from-lime-500 to-green-500',
-    'from-cyan-500 to-sky-500',
-    'from-violet-500 to-purple-500',
-    'from-red-500 to-yellow-500',
+    'from-pink-600 to-rose-700',
+    'from-amber-600 to-orange-700',
+    'from-lime-600 to-green-700',
+    'from-cyan-600 to-sky-700',
+    'from-violet-600 to-purple-700',
+    'from-fuchsia-600 to-pink-700',
 ];
 
 function SubFolderItem({ subFolder, index }: { subFolder: SubFolder; index: number }) {
@@ -30,7 +30,7 @@ function SubFolderItem({ subFolder, index }: { subFolder: SubFolder; index: numb
      return (
         <button
             className={cn(
-                "w-full rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 cursor-pointer p-4 flex items-center justify-between text-white",
+                "w-full rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 cursor-pointer p-4 flex items-center justify-between text-white bg-gradient-to-r",
                 subFolderGradients[index % subFolderGradients.length]
             )}
             onClick={handleClick}
