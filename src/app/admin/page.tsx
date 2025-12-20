@@ -167,9 +167,9 @@ function AdminDashboard() {
   ];
   
   const analytics = [
-    { title: "कुल विषय", value: papers?.length ?? "...", icon: Library, gradient: "from-blue-500 to-cyan-400" },
-    { title: "कुल कॉम्बो", value: combos?.length ?? "...", icon: Package, gradient: "from-purple-500 to-pink-500" },
-    { title: "कुल यूज़र", value: users?.length ?? "...", icon: Users, gradient: "from-green-500 to-teal-400" },
+    { title: "कुल विषय", value: papersLoading ? <LoaderCircle className="h-5 w-5 animate-spin"/> : papers?.length ?? 0, icon: Library, gradient: "from-blue-500 to-cyan-400" },
+    { title: "कुल कॉम्बो", value: combosLoading ? <LoaderCircle className="h-5 w-5 animate-spin"/> : combos?.length ?? 0, icon: Package, gradient: "from-purple-500 to-pink-500" },
+    { title: "कुल यूज़र", value: usersLoading ? <LoaderCircle className="h-5 w-5 animate-spin"/> : users?.length ?? 0, icon: Users, gradient: "from-green-500 to-teal-400" },
     { title: "आज की कमाई", value: "₹ 0", icon: DollarSign, gradient: "from-yellow-500 to-orange-500" },
   ];
 
