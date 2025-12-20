@@ -4,7 +4,7 @@
 import React, { useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { LoaderCircle, ChevronRight } from "lucide-react";
+import { LoaderCircle, ChevronRight, WandSparkles } from "lucide-react";
 import { collection, query, orderBy, limit } from "firebase/firestore";
 import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
 import { AppLayout } from "@/components/app-layout";
@@ -14,7 +14,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { Card, CardTitle } from "@/components/ui/card";
+import { Card, CardTitle, CardDescription } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import type { Paper, Combo, Tab } from "@/lib/types";
 import { Button } from "@/components/ui/button";
@@ -157,6 +157,18 @@ export default function HomePage() {
         )}
 
         <div className="space-y-8">
+            <Link href="/ai-notes-generator" className="block group">
+              <Card className="p-6 bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500 text-white shadow-lg hover:shadow-xl transition-shadow">
+                <div className="flex items-center justify-between">
+                    <div>
+                        <CardTitle className="text-2xl font-headline">AI Notes जेनरेटर</CardTitle>
+                        <CardDescription className="text-white/80">रंगीन और आकर्षक नोट्स बनाएं</CardDescription>
+                    </div>
+                    <WandSparkles className="w-10 h-10 group-hover:animate-pulse" />
+                </div>
+              </Card>
+            </Link>
+
             {papers && papers.length > 0 && (
               <div className="space-y-4">
                   <h2 className="text-xl font-headline font-bold gradient-text">Subjects</h2>
