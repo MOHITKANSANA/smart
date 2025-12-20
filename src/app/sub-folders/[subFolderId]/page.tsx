@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import React, { useState, Suspense } from 'react';
+import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { collection, query, orderBy, doc } from 'firebase/firestore';
 import { useFirestore, useDoc, useCollection, useMemoFirebase } from '@/firebase';
 import { AppLayout } from '@/components/app-layout';
@@ -43,13 +43,20 @@ function PdfItem({ pdf, index }: { pdf: PdfDocument; index: number }) {
     )
 }
 
-export default function SubFolderDetailPage() {
+function SubFolderDetailContent() {
     const firestore = useFirestore();
     const router = useRouter();
     const params = useParams();
+    const searchParams = useSearchParams();
+
     const subFolderId = params.subFolderId as string;
+    const tabId = searchParams.get('tabId');
     
-    const subFolderRef = useMemoFirebase(() => doc(firestore, 'subFolders', subFolderId), [firestore, subFolderId]);
+    const subFolderRef = useMemoFirebase(() => {
+        if (!tabId || !subFolderId) return null;
+        return doc(firestore, `tabs/${tabId}/subFolders`, subFolderId);
+    }, [firestore, tabId, subFolderId]);
+    
     const { data: subFolder, isLoading: isLoadingSubFolder } = useDoc<SubFolder>(subFolderRef);
 
     const pdfsQuery = useMemoFirebase(() => 
@@ -104,5 +111,13 @@ export default function SubFolderDetailPage() {
                 )}
             </main>
         </AppLayout>
+    );
+}
+
+export default function SubFolderDetailPage() {
+    return (
+        <Suspense fallback={<div className="flex h-screen items-center justify-center bg-background"><LoaderCircle className="w-10 h-10 animate-spin text-primary" /></div>}>
+            <SubFolderDetailContent />
+        </Suspense>
     );
 }

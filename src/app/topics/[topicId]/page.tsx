@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils';
 import type { Tab, SubFolder } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Suspense } from 'react';
+import Link from 'next/link';
 
 const subFolderGradients = [
     'from-pink-600 to-rose-700',
@@ -23,21 +24,22 @@ const subFolderGradients = [
 
 function SubFolderItem({ subFolder, index }: { subFolder: SubFolder; index: number }) {
     const router = useRouter();
-    const handleClick = () => {
-        router.push(`/sub-folders/${subFolder.id}`);
-    }
+    
+    // Construct the correct href for the Link component
+    const href = `/sub-folders/${subFolder.id}?paperId=${subFolder.paperId}&tabId=${subFolder.tabId}`;
 
      return (
-        <button
-            className={cn(
-                "w-full rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 cursor-pointer p-4 flex items-center justify-between text-white bg-gradient-to-r",
-                subFolderGradients[index % subFolderGradients.length]
-            )}
-            onClick={handleClick}
-        >
-            <h3 className="font-headline text-lg font-bold">{subFolder.name}</h3>
-            <ChevronRight className="w-6 h-6" />
-        </button>
+        <Link href={href} passHref>
+            <div
+                className={cn(
+                    "w-full rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 cursor-pointer p-4 flex items-center justify-between text-white bg-gradient-to-r",
+                    subFolderGradients[index % subFolderGradients.length]
+                )}
+            >
+                <h3 className="font-headline text-lg font-bold">{subFolder.name}</h3>
+                <ChevronRight className="w-6 h-6" />
+            </div>
+        </Link>
     );
 }
 
