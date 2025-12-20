@@ -14,16 +14,17 @@ import './notes-style.css';
 export default function PreviewPage() {
   const router = useRouter();
   const [notes, setNotes] = useState('');
+  const [topic, setTopic] = useState('');
   const [isDownloading, setIsDownloading] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const storedNotes = sessionStorage.getItem('generatedNotes');
+    const storedTopic = sessionStorage.getItem('notesTopic');
     if (storedNotes) {
-      // Use marked to convert markdown to HTML
       setNotes(marked(storedNotes) as string);
+      setTopic(storedTopic || 'Generated Notes');
     } else {
-        // If no notes are found, redirect back to generator
         router.replace('/ai-notes-generator');
     }
   }, [router]);
@@ -33,10 +34,11 @@ export default function PreviewPage() {
     setIsDownloading(true);
     
     try {
-        const canvas = await html2canvas(contentRef.current, {
-            scale: 2, // Increase resolution for better quality
+        const content = contentRef.current;
+        const canvas = await html2canvas(content, {
+            scale: 2,
             useCORS: true,
-            backgroundColor: null, // Use transparent background
+            backgroundColor: window.getComputedStyle(document.body).backgroundColor,
         });
 
         const imgData = canvas.toDataURL('image/png');
@@ -98,9 +100,7 @@ export default function PreviewPage() {
 
         <Card>
           <CardContent className="p-0">
-            {/* The ref is attached here for PDF generation */}
-            <div ref={contentRef} className="p-6">
-              {/* The generated HTML from markdown is rendered here */}
+            <div ref={contentRef} className="p-6 bg-card text-card-foreground">
               <div
                 className="prose prose-sm sm:prose-base lg:prose-lg dark:prose-invert max-w-none colorful-notes"
                 dangerouslySetInnerHTML={{ __html: notes }}

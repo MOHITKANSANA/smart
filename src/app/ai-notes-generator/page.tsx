@@ -49,8 +49,8 @@ export default function AINotesGeneratorPage() {
     setIsGenerating(true);
     try {
       const result = await generateNotes(values as NotesGeneratorInput);
-      // Store result in sessionStorage to pass to the preview page
       sessionStorage.setItem('generatedNotes', result.notes);
+      sessionStorage.setItem('notesTopic', values.topic);
       router.push('/ai-notes-generator/preview');
     } catch (error: any) {
       console.error('Error generating notes:', error);
