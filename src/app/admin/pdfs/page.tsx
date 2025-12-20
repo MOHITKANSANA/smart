@@ -60,7 +60,11 @@ const pdfSchema = z.object({
   subFolderId: z.string().min(1, "कृपया एक सब-फोल्डर चुनें।"),
   accessType: z.enum(["Free", "Paid"]),
   price: z.preprocess(
-    (a) => parseFloat(z.string().parse(a)),
+    (a) => {
+        if (!a || a === '') return undefined;
+        const parsed = parseFloat(z.string().parse(a));
+        return isNaN(parsed) ? undefined : parsed;
+    },
     z.number().positive("कीमत 0 से ज़्यादा होनी चाहिए।").optional()
   ),
 }).refine(data => data.accessType === 'Free' || (data.price !== undefined && data.price > 0), {
@@ -84,7 +88,10 @@ function PdfForm({ pdf, onFinished }: { pdf?: PdfDocument | null, onFinished: ()
 
   const form = useForm<z.infer<typeof pdfSchema>>({
     resolver: zodResolver(pdfSchema),
-    defaultValues: pdf ? { ...pdf } : {
+    defaultValues: pdf ? { 
+      ...pdf,
+      price: pdf.price || undefined,
+    } : {
       name: "",
       description: "",
       googleDriveLink: "",
@@ -92,7 +99,7 @@ function PdfForm({ pdf, onFinished }: { pdf?: PdfDocument | null, onFinished: ()
       tabId: "",
       subFolderId: "",
       accessType: "Free",
-      price: 0,
+      price: undefined,
     },
   });
 
@@ -110,6 +117,8 @@ function PdfForm({ pdf, onFinished }: { pdf?: PdfDocument | null, onFinished: ()
         setTabsLoading(false);
     }
     fetchTabs(selectedPaperId);
+     // When paper changes, reset tab and subfolder
+    form.reset({ ...form.getValues(), tabId: '', subFolderId: '' });
   }, [selectedPaperId, firestore]);
 
   useEffect(() => {
@@ -122,6 +131,8 @@ function PdfForm({ pdf, onFinished }: { pdf?: PdfDocument | null, onFinished: ()
         setSubFoldersLoading(false);
     }
     fetchSubFolders(selectedTabId);
+    // When tab changes, reset subfolder
+    form.reset({ ...form.getValues(), subFolderId: '' });
   }, [selectedTabId, firestore]);
 
   
@@ -156,16 +167,16 @@ function PdfForm({ pdf, onFinished }: { pdf?: PdfDocument | null, onFinished: ()
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-        <FormField control={form.control} name="paperId" render={({ field }) => (<FormItem><FormLabel>विषय चुनें</FormLabel><Select onValueChange={(value) => { field.onChange(value); form.setValue('tabId', ''); form.setValue('subFolderId', ''); }} defaultValue={field.value}><FormControl><SelectTrigger disabled={papersLoading}><SelectValue placeholder="एक विषय चुनें" /></SelectTrigger></FormControl><SelectContent>{papers?.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>)}/>
-        <FormField control={form.control} name="tabId" render={({ field }) => (<FormItem><FormLabel>टॉपिक चुनें</FormLabel><Select onValueChange={(value) => { field.onChange(value); form.setValue('subFolderId', ''); }} defaultValue={field.value} disabled={!selectedPaperId || tabsLoading}><FormControl><SelectTrigger><SelectValue placeholder={!selectedPaperId ? "पहले विषय चुनें" : "एक टॉपिक चुनें"} /></SelectTrigger></FormControl><SelectContent>{tabs.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>)}/>
-        <FormField control={form.control} name="subFolderId" render={({ field }) => (<FormItem><FormLabel>सब-फोल्डर चुनें</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value} disabled={!selectedTabId || subFoldersLoading}><FormControl><SelectTrigger><SelectValue placeholder={!selectedTabId ? "पहले टॉपिक चुनें" : "एक सब-फोल्डर चुनें"} /></SelectTrigger></FormControl><SelectContent>{subFolders.map(sf => <SelectItem key={sf.id} value={sf.id}>{sf.name}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>)}/>
+        <FormField control={form.control} name="paperId" render={({ field }) => (<FormItem><FormLabel>विषय चुनें</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger disabled={papersLoading}><SelectValue placeholder="एक विषय चुनें" /></SelectTrigger></FormControl><SelectContent>{papers?.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>)}/>
+        <FormField control={form.control} name="tabId" render={({ field }) => (<FormItem><FormLabel>टॉपिक चुनें</FormLabel><Select onValueChange={field.onChange} value={field.value} disabled={!selectedPaperId || tabsLoading}><FormControl><SelectTrigger><SelectValue placeholder={!selectedPaperId ? "पहले विषय चुनें" : "एक टॉपिक चुनें"} /></SelectTrigger></FormControl><SelectContent>{tabs.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>)}/>
+        <FormField control={form.control} name="subFolderId" render={({ field }) => (<FormItem><FormLabel>सब-फोल्डर चुनें</FormLabel><Select onValueChange={field.onChange} value={field.value} disabled={!selectedTabId || subFoldersLoading}><FormControl><SelectTrigger><SelectValue placeholder={!selectedTabId ? "पहले टॉपिक चुनें" : "एक सब-फोल्डर चुनें"} /></SelectTrigger></FormControl><SelectContent>{subFolders.map(sf => <SelectItem key={sf.id} value={sf.id}>{sf.name}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>)}/>
         
         <FormField control={form.control} name="name" render={({ field }) => (<FormItem><FormLabel>PDF का नाम</FormLabel><FormControl><Input placeholder="जैसे: इतिहास के महत्वपूर्ण नोट्स" {...field} /></FormControl><FormMessage /></FormItem>)}/>
         <FormField control={form.control} name="description" render={({ field }) => (<FormItem><FormLabel>PDF का विवरण</FormLabel><FormControl><Input placeholder="इसमें महत्वपूर्ण तिथियां हैं" {...field} /></FormControl><FormMessage /></FormItem>)}/>
         <FormField control={form.control} name="googleDriveLink" render={({ field }) => (<FormItem><FormLabel>Google Drive PDF Link</FormLabel><FormControl><Input placeholder="https://drive.google.com/..." {...field} /></FormControl><FormMessage /></FormItem>)}/>
         
-        <FormField control={form.control} name="accessType" render={({ field }) => (<FormItem><FormLabel>एक्सेस प्रकार चुनें</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="Free">Free</SelectItem><SelectItem value="Paid">Paid</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
-        {selectedAccessType === 'Paid' && <FormField control={form.control} name="price" render={({ field }) => (<FormItem><FormLabel>कीमत (₹ में)</FormLabel><FormControl><Input type="number" placeholder="जैसे: 99" {...field} /></FormControl><FormMessage /></FormItem>)} />}
+        <FormField control={form.control} name="accessType" render={({ field }) => (<FormItem><FormLabel>एक्सेस प्रकार चुनें</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="Free">Free</SelectItem><SelectItem value="Paid">Paid</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
+        {selectedAccessType === 'Paid' && <FormField control={form.control} name="price" render={({ field }) => (<FormItem><FormLabel>कीमत (₹ में)</FormLabel><FormControl><Input type="number" placeholder="जैसे: 99" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />}
 
         <DialogFooter>
             <Button type="button" variant="ghost" onClick={onFinished}>रद्द करें</Button>
@@ -192,33 +203,39 @@ export default function ManagePdfsPage() {
   
   const fetchAllData = async () => {
       setIsLoading(true);
-      const papersSnapshot = await getDocs(query(collection(firestore, "papers"), orderBy("paperNumber")));
-      const papersData = papersSnapshot.docs.map(d => ({ ...d.data(), id: d.id } as Paper));
-      setPapers(papersData);
+      try {
+        const papersSnapshot = await getDocs(query(collection(firestore, "papers"), orderBy("paperNumber")));
+        const papersData = papersSnapshot.docs.map(d => ({ ...d.data(), id: d.id } as Paper));
+        setPapers(papersData);
 
-      const allTabs: Tab[] = [];
-      const allSubFolders: SubFolder[] = [];
-      const allPdfsData: PdfDocument[] = [];
+        const allTabs: Tab[] = [];
+        const allSubFolders: SubFolder[] = [];
+        const allPdfsData: PdfDocument[] = [];
 
-      for (const paper of papersData) {
-        const tabsSnapshot = await getDocs(query(collection(firestore, `papers/${paper.id}/tabs`), orderBy("name")));
-        const tabsData = tabsSnapshot.docs.map(d => ({ ...d.data(), id: d.id } as Tab));
-        allTabs.push(...tabsData);
-        for (const tab of tabsData) {
-            const subFoldersSnapshot = await getDocs(query(collection(firestore, `tabs/${tab.id}/subFolders`), orderBy("name")));
-            const subFoldersData = subFoldersSnapshot.docs.map(d => ({ ...d.data(), id: d.id } as SubFolder));
-            allSubFolders.push(...subFoldersData);
-            for (const subFolder of subFoldersData) {
-                const pdfsSnapshot = await getDocs(query(collection(firestore, `subFolders/${subFolder.id}/pdfDocuments`), orderBy("name")));
-                const pdfsData = pdfsSnapshot.docs.map(d => ({ ...d.data(), id: d.id } as PdfDocument));
-                allPdfsData.push(...pdfsData);
-            }
+        for (const paper of papersData) {
+          const tabsSnapshot = await getDocs(query(collection(firestore, `papers/${paper.id}/tabs`), orderBy("name")));
+          const tabsData = tabsSnapshot.docs.map(d => ({ ...d.data(), id: d.id } as Tab));
+          allTabs.push(...tabsData);
+          for (const tab of tabsData) {
+              const subFoldersSnapshot = await getDocs(query(collection(firestore, `tabs/${tab.id}/subFolders`), orderBy("name")));
+              const subFoldersData = subFoldersSnapshot.docs.map(d => ({ ...d.data(), id: d.id } as SubFolder));
+              allSubFolders.push(...subFoldersData);
+              for (const subFolder of subFoldersData) {
+                  const pdfsSnapshot = await getDocs(query(collection(firestore, `subFolders/${subFolder.id}/pdfDocuments`), orderBy("createdAt", "desc")));
+                  const pdfsData = pdfsSnapshot.docs.map(d => ({ ...d.data(), id: d.id } as PdfDocument));
+                  allPdfsData.push(...pdfsData);
+              }
+          }
         }
+        setTabs(allTabs);
+        setSubFolders(allSubFolders);
+        setAllPdfs(allPdfsData);
+      } catch (error) {
+        console.error("Error fetching all data:", error);
+        toast({ variant: "destructive", title: "त्रुटि!", description: "डेटा लोड करने में विफल।" });
+      } finally {
+        setIsLoading(false);
       }
-      setTabs(allTabs);
-      setSubFolders(allSubFolders);
-      setAllPdfs(allPdfsData);
-      setIsLoading(false);
     };
 
   useEffect(() => {
@@ -319,5 +336,3 @@ export default function ManagePdfsPage() {
     </AppLayout>
   );
 }
-
-    
