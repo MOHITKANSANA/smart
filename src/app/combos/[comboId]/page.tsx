@@ -14,12 +14,12 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from '@/components/ui/button';
 
 const pdfGradients = [
-    'dark:from-sky-900/70 dark:to-blue-900/70 from-sky-100 to-blue-100',
-    'dark:from-fuchsia-900/70 dark:to-purple-900/70 from-fuchsia-100 to-purple-100',
-    'dark:from-emerald-900/70 dark:to-green-900/70 from-emerald-100 to-green-100',
-    'dark:from-amber-900/70 dark:to-yellow-900/70 from-amber-100 to-yellow-100',
-    'dark:from-rose-900/70 dark:to-red-900/70 from-rose-100 to-red-100',
-    'dark:from-violet-900/70 dark:to-indigo-900/70 from-violet-100 to-indigo-100',
+    'from-blue-600 to-indigo-700',
+    'from-purple-600 to-pink-700',
+    'from-green-600 to-teal-700',
+    'from-amber-600 to-orange-700',
+    'from-rose-600 to-red-700',
+    'from-violet-600 to-purple-700',
 ];
 
 
@@ -34,12 +34,12 @@ function PdfItem({ pdf, index }: { pdf: DocumentData; index: number }) {
 
     return (
         <a href="#" onClick={handleClick} className="block">
-          <div className={cn("flex items-center p-3 rounded-lg hover:shadow-md transition-all duration-200", gradientClass)}>
-            <div className={cn("p-2 rounded-md mr-4", 'bg-green-500/20')}>
-              <FileText className="h-5 w-5 text-green-600 dark:text-green-400" />
+          <div className={cn("flex items-center p-3 rounded-lg hover:shadow-md transition-all duration-200 text-white", gradientClass)}>
+            <div className={cn("p-2 rounded-md mr-4", 'bg-white/20')}>
+              <FileText className="h-5 w-5 text-white" />
             </div>
             <div className="flex-1">
-              <p className="font-semibold text-foreground text-sm">{pdf.name}</p>
+              <p className="font-semibold text-sm">{pdf.name}</p>
             </div>
           </div>
         </a>
