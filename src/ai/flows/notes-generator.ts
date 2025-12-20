@@ -31,11 +31,11 @@ const notesPrompt = ai.definePrompt({
 **Instructions:**
 1.  **Analyze the Request:** Carefully read the topic, language, and any additional description provided.
 2.  **Structure the Notes:** Organize the content logically. Use Markdown for formatting:
-    *   `# Main Title` for the primary topic.
-    *   `## Subheading` for major sections.
-    *   `### Sub-subheading` for smaller sections.
-    *   Use bullet points (`*` or `-`) for lists of items.
-    *   Use numbered lists (`1.`, `2.`) for steps or sequential information.
+    *   Use '# Main Title' for the primary topic.
+    *   Use '## Subheading' for major sections.
+    *   Use '### Sub-subheading' for smaller sections.
+    *   Use bullet points ('*' or '-') for lists of items.
+    *   Use numbered lists ('1.', '2.') for steps or sequential information.
 3.  **Highlight Key Information:** Emphasize the most important keywords, definitions, dates, and concepts by making them **bold**. This is crucial for making the notes scannable and easy to review.
 4.  **Language:** Generate the notes strictly in the requested language ({{language}}).
 5.  **Be Clear and Concise:** Use simple language and break down complex ideas into easy-to-understand points.
