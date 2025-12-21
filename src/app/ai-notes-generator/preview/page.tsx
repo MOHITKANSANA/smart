@@ -10,12 +10,17 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Download, ChevronLeft, LoaderCircle, AlertTriangle } from 'lucide-react';
 import './notes-style.css';
+import { useFirestore, useMemoFirebase } from '@/firebase';
+import { doc, getDoc } from 'firebase/firestore';
+import type { NoteStyleSettings } from '@/lib/types';
 
 export default function PreviewPage() {
   const router = useRouter();
+  const firestore = useFirestore();
   const [notes, setNotes] = useState('');
   const [topic, setTopic] = useState('');
   const [isDownloading, setIsDownloading] = useState(false);
+  const [styleSettings, setStyleSettings] = useState<NoteStyleSettings | null>(null);
   const contentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -27,7 +32,17 @@ export default function PreviewPage() {
     } else {
         router.replace('/ai-notes-generator');
     }
-  }, [router]);
+
+    const fetchStyleSettings = async () => {
+        const settingsRef = doc(firestore, 'settings', 'notesStyle');
+        const docSnap = await getDoc(settingsRef);
+        if (docSnap.exists()) {
+            setStyleSettings(docSnap.data() as NoteStyleSettings);
+        }
+    };
+    fetchStyleSettings();
+
+  }, [router, firestore]);
 
   const handleDownloadPdf = async () => {
     if (!contentRef.current) return;
@@ -94,6 +109,15 @@ export default function PreviewPage() {
     }
   };
 
+  const dynamicStyles = styleSettings ? `
+    :root {
+        --notes-h1-color: ${styleSettings.h1Color};
+        --notes-h2-color: ${styleSettings.h2Color};
+        --notes-text-color: ${styleSettings.textColor};
+        --notes-highlight-color: ${styleSettings.highlightColor};
+    }
+  ` : '';
+
   if (!notes) {
       return (
         <AppLayout>
@@ -111,6 +135,7 @@ export default function PreviewPage() {
 
   return (
     <AppLayout>
+      <style>{dynamicStyles}</style>
       <main className="flex-1 p-4 sm:p-6">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-2">

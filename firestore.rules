@@ -16,12 +16,15 @@
  * - /subFolders/{subFolderId}/pdfDocuments/{pdfDocumentId}: Public collection of PDFs within a sub-folder.
  * - /combos/{comboId}: Public collection of PDF combos.
  * - /notifications/{notificationId}: Notifications for users.
+ * - /payments/{orderId}: Stores payment transaction records.
+ * - /settings/{settingId}: Stores application-wide settings, like AI notes style.
  *
  * Key Security Decisions:
  * - Admin-Only Content Management: All creation, modification, and deletion of public content
  *   (Papers, Tabs, SubFolders, PdfDocuments, Combos, Notifications) is restricted to users with the Admin role.
  * - Strict User Data Privacy: A user's profile data in `/users/{userId}` is private.
  * - Public Read Access: All educational content and notifications are publicly readable.
+ * - Secure Payment Records: Users can only create their own payment records. Admins can read all records.
  * - Default Deny: Access is denied by default. All permissions must be explicitly granted.
  */
 rules_version = '2';
@@ -138,6 +141,29 @@ service cloud.firestore {
       allow get, list: if isSignedIn();
       allow create, delete: if isAdmin();
       allow update: if isSignedIn() && request.resource.data.readBy[request.auth.uid] == true;
+    }
+
+    // --------------------------------------------------------------------
+    // Payments (/payments/{orderId})
+    // --------------------------------------------------------------------
+    match /payments/{orderId} {
+        allow get: if isAdmin() || isOwner(request.resource.data.userId);
+        allow list: if isAdmin();
+        // A user can create their own pending payment record.
+        allow create: if isOwner(request.resource.data.userId) && request.resource.data.status == 'PENDING';
+        // Only a trusted server environment (via Admin SDK) should update the status to SUCCESS/FAILED.
+        // For client-side only app, we relax this slightly but it's not ideal.
+        allow update: if isAdmin();
+        allow delete: if isAdmin();
+    }
+
+    // --------------------------------------------------------------------
+    // Settings (/settings/{settingId})
+    // --------------------------------------------------------------------
+     match /settings/{settingId} {
+        allow get: if true; // All users can read settings
+        allow list: if true;
+        allow create, update, delete: if isAdmin(); // Only admins can change settings
     }
   }
 }

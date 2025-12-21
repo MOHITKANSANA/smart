@@ -56,7 +56,8 @@
     "zod": "^3.24.2",
     "html2canvas": "^1.4.1",
     "jspdf": "^2.5.1",
-    "marked": "^13.0.2"
+    "marked": "^13.0.2",
+    "cashfree-pg": "^4.0.3"
   },
   "devDependencies": {
     "@types/node": "^20",

@@ -3,12 +3,13 @@
 import React, { useState, Suspense } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { collection, query, orderBy, doc } from 'firebase/firestore';
-import { useFirestore, useDoc, useCollection, useMemoFirebase } from '@/firebase';
+import { useFirestore, useDoc, useCollection, useMemoFirebase, useUser } from '@/firebase';
 import { AppLayout } from '@/components/app-layout';
-import { LoaderCircle, Folder, Home, ChevronLeft, FileText } from 'lucide-react';
+import { LoaderCircle, Folder, Home, ChevronLeft, FileText, ShoppingCart } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { SubFolder, PdfDocument } from '@/lib/types';
+import type { SubFolder, PdfDocument, User as AppUser } from '@/lib/types';
 import { Button } from '@/components/ui/button';
+import PaymentDialog from '@/components/payment-dialog';
 
 const pdfGradients = [
     'from-blue-600 to-indigo-700',
@@ -19,13 +20,17 @@ const pdfGradients = [
     'from-violet-600 to-purple-700',
 ];
 
-function PdfItem({ pdf, index }: { pdf: PdfDocument; index: number }) {
+function PdfItem({ pdf, index, onPay, hasAccess }: { pdf: PdfDocument; index: number; onPay: (pdf: PdfDocument) => void, hasAccess: boolean }) {
     const router = useRouter();
     const gradientClass = `bg-gradient-to-r ${pdfGradients[index % pdfGradients.length]}`;
 
     const handleClick = (e: React.MouseEvent) => {
         e.preventDefault();
-        router.push(`/ad-gateway?url=${encodeURIComponent(pdf.googleDriveLink)}`);
+        if (pdf.accessType === 'Paid' && !hasAccess) {
+            onPay(pdf);
+        } else {
+            router.push(`/ad-gateway?url=${encodeURIComponent(pdf.googleDriveLink)}`);
+        }
     }
 
     return (
@@ -38,6 +43,18 @@ function PdfItem({ pdf, index }: { pdf: PdfDocument; index: number }) {
               <p className="font-semibold text-sm">{pdf.name}</p>
               <p className="text-xs text-white/80">{pdf.description}</p>
             </div>
+            {pdf.accessType === 'Paid' && (
+                <div className="ml-4">
+                    {hasAccess ? (
+                        <span className="text-xs font-bold bg-green-500/80 px-2 py-1 rounded-md">Owned</span>
+                    ) : (
+                        <Button size="sm" variant="secondary" className="bg-white/90 text-black hover:bg-white h-auto py-1 px-3">
+                            <ShoppingCart className="h-4 w-4 mr-1"/>
+                            Buy ₹{pdf.price}
+                        </Button>
+                    )}
+                </div>
+            )}
           </div>
         </a>
     )
@@ -48,10 +65,17 @@ function SubFolderDetailContent() {
     const router = useRouter();
     const params = useParams();
     const searchParams = useSearchParams();
+    const { user } = useUser();
 
     const subFolderId = params.subFolderId as string;
     const tabId = searchParams.get('tabId');
     
+    const [paymentItem, setPaymentItem] = useState<PdfDocument | null>(null);
+    const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
+
+    const userDocRef = useMemoFirebase(() => user ? doc(firestore, 'users', user.uid) : null, [firestore, user]);
+    const { data: appUser } = useDoc<AppUser>(userDocRef);
+
     const subFolderRef = useMemoFirebase(() => {
         if (!tabId || !subFolderId) return null;
         return doc(firestore, `tabs/${tabId}/subFolders`, subFolderId);
@@ -66,6 +90,11 @@ function SubFolderDetailContent() {
     const { data: pdfs, isLoading: isLoadingPdfs } = useCollection<PdfDocument>(pdfsQuery);
     
     const isLoading = isLoadingSubFolder || isLoadingPdfs;
+
+    const handlePay = (pdf: PdfDocument) => {
+        setPaymentItem(pdf);
+        setIsPaymentDialogOpen(true);
+    }
 
     if (isLoading) {
         return (
@@ -106,10 +135,26 @@ function SubFolderDetailContent() {
                      <p className="text-center text-muted-foreground p-8">इस फोल्डर में अभी कोई PDF नहीं है।</p>
                 ) : (
                     <div className="space-y-2">
-                       {pdfs.map((pdf, index) => <PdfItem key={pdf.id} pdf={pdf} index={index} />)}
+                       {pdfs.map((pdf, index) => (
+                          <PdfItem 
+                            key={pdf.id}
+                            pdf={pdf}
+                            index={index}
+                            onPay={handlePay}
+                            hasAccess={appUser?.purchasedItems?.includes(pdf.id) ?? false}
+                           />
+                        ))}
                     </div>
                 )}
             </main>
+            {paymentItem && (
+                <PaymentDialog
+                    isOpen={isPaymentDialogOpen}
+                    setIsOpen={setIsPaymentDialogOpen}
+                    item={paymentItem}
+                    itemType="pdf"
+                />
+            )}
         </AppLayout>
     );
 }

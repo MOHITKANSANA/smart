@@ -1,10 +1,44 @@
-// This file is no longer needed as the order creation is now handled on the client-side.
-// You can safely delete this file.
-export async function POST() {
-    return new Response(JSON.stringify({ error: "This endpoint is deprecated." }), {
-        status: 404,
-        headers: {
-            'Content-Type': 'application/json',
-        },
-    });
+'use server';
+
+import { NextRequest, NextResponse } from 'next/server';
+import { Cashfree } from 'cashfree-pg';
+import { randomUUID } from 'crypto';
+
+Cashfree.XClientId = process.env.CASHFREE_APP_ID!;
+Cashfree.XClientSecret = process.env.CASHFREE_SECRET_KEY!;
+Cashfree.XEnvironment = Cashfree.Environment.PRODUCTION;
+
+export async function POST(req: NextRequest) {
+  try {
+    const { userId, userEmail, userPhone, userName, item } = await req.json();
+
+    if (!userId || !item) {
+        return NextResponse.json({ error: 'User or item information is missing' }, { status: 400 });
+    }
+
+    const orderId = `order_${randomUUID()}`;
+
+    const request = {
+      order_amount: item.price,
+      order_currency: "INR",
+      order_id: orderId,
+      customer_details: {
+        customer_id: userId,
+        customer_email: userEmail,
+        customer_phone: userPhone || "9999999999", // Fallback phone number
+        customer_name: userName,
+      },
+      order_meta: {
+        return_url: `${process.env.NEXT_PUBLIC_APP_URL}/api/payment-status?order_id={order_id}`,
+      },
+      order_note: `Payment for ${item.name}`,
+    };
+
+    const response = await Cashfree.PGCreateOrder("2023-08-01", request);
+    
+    return NextResponse.json(response.data);
+  } catch (error: any) {
+    console.error('Cashfree order creation error:', error);
+    return NextResponse.json({ error: error.message || 'Failed to create payment session' }, { status: 500 });
+  }
 }

@@ -40,6 +40,7 @@ export type User = {
   email: string;
   mobileNumber?: string;
   role: 'student' | 'admin';
+  purchasedItems?: string[]; // Array of item IDs (pdf/combo)
 };
 
 export type ComboPdfDetail = {
@@ -67,4 +68,23 @@ export type Notification = {
     imageUrl?: string;
     createdAt: any; // Firestore ServerTimestamp
     readBy?: string[];
+}
+
+export type Payment = {
+    id?: string;
+    userId: string;
+    itemId: string;
+    itemType: 'pdf' | 'combo';
+    amount: number;
+    orderId: string;
+    paymentId: string;
+    status: 'PENDING' | 'SUCCESS' | 'FAILED';
+    createdAt: any; // Firestore ServerTimestamp
+}
+
+export type NoteStyleSettings = {
+    h1Color: string;
+    h2Color: string;
+    textColor: string;
+    highlightColor: string;
 }

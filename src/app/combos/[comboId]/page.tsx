@@ -4,14 +4,15 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { collection, query, where, orderBy, doc, getDoc, getDocs, DocumentData } from 'firebase/firestore';
-import { useFirestore, useDoc, useCollection, useMemoFirebase } from '@/firebase';
+import { useFirestore, useDoc, useCollection, useMemoFirebase, useUser } from '@/firebase';
 import { AppLayout } from '@/components/app-layout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { LoaderCircle, FileText, Home, ChevronLeft } from 'lucide-react';
+import { LoaderCircle, FileText, Home, ChevronLeft, Lock, ShoppingCart } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { Combo, PdfDocument } from '@/lib/types';
+import type { Combo, PdfDocument, User as AppUser } from '@/lib/types';
 import { useToast } from "@/hooks/use-toast";
 import { Button } from '@/components/ui/button';
+import PaymentDialog from '@/components/payment-dialog';
 
 const pdfGradients = [
     'from-blue-600 to-indigo-700',
@@ -50,10 +51,22 @@ export default function ComboDetailPage() {
     const firestore = useFirestore();
     const router = useRouter();
     const params = useParams();
+    const { user } = useUser();
     const comboId = params.comboId as string;
     
+    const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
+    
+    const userDocRef = useMemoFirebase(() => user ? doc(firestore, 'users', user.uid) : null, [firestore, user]);
+    const { data: appUser } = useDoc<AppUser>(userDocRef);
+
     const comboRef = useMemoFirebase(() => doc(firestore, 'combos', comboId), [firestore, comboId]);
     const { data: combo, isLoading: isLoadingCombo } = useDoc<Combo>(comboRef);
+
+    const hasAccess = useMemo(() => {
+        if (!combo || !appUser) return false;
+        if (combo.accessType === 'Free') return true;
+        return appUser.purchasedItems?.includes(combo.id) ?? false;
+    }, [combo, appUser]);
     
     const isLoading = isLoadingCombo;
 
@@ -82,6 +95,10 @@ export default function ComboDetailPage() {
         )
     }
 
+    const handleBuyNow = () => {
+        setIsPaymentDialogOpen(true);
+    }
+
     return (
         <AppLayout>
             <main className="flex-1 flex flex-col p-4 sm:p-6">
@@ -91,19 +108,51 @@ export default function ComboDetailPage() {
                     </Button>
                     <h1 className="font-headline text-2xl sm:text-3xl font-bold gradient-text">{combo.name}</h1>
                 </div>
+
+                {combo.accessType === 'Paid' && !hasAccess && (
+                    <Card className="mb-6 bg-yellow-500/10 border-yellow-500/50">
+                        <CardContent className="p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+                            <div>
+                                <CardTitle className="text-yellow-200">यह एक पेड कॉम्बो है</CardTitle>
+                                <CardDescription className="text-yellow-300/80">इस कॉम्बो के सभी PDFs को एक्सेस करने के लिए अभी खरीदें।</CardDescription>
+                            </div>
+                            <Button onClick={handleBuyNow} className="bg-gradient-to-r from-yellow-400 to-orange-500 text-black font-bold shadow-lg w-full sm:w-auto">
+                                <ShoppingCart className="mr-2 h-4 w-4" /> अभी खरीदें ₹{combo.price}
+                            </Button>
+                        </CardContent>
+                    </Card>
+                )}
                 
                 {isLoading && (
                     <div className="flex justify-center p-8"><LoaderCircle className="w-8 h-8 animate-spin text-primary" /></div>
                 )}
-                
-                {!isLoading && (!combo.pdfDetails || combo.pdfDetails.length === 0) ? (
+
+                {hasAccess && (!combo.pdfDetails || combo.pdfDetails.length === 0) && (
                      <p className="text-center text-muted-foreground p-8">इस कॉम्बो में अभी कोई PDF नहीं है।</p>
-                ) : (
+                )}
+
+                {hasAccess && combo.pdfDetails && (
                    <div className="space-y-2">
-                       {combo.pdfDetails?.map((pdf: DocumentData, pdfIndex: number) => <PdfItem key={pdf.id} pdf={pdf} index={pdfIndex} />)}
+                       {combo.pdfDetails.map((pdf: DocumentData, pdfIndex: number) => <PdfItem key={pdf.id} pdf={pdf} index={pdfIndex} />)}
                    </div>
                 )}
+                
+                {!hasAccess && combo.accessType === 'Paid' && (
+                     <div className="text-center p-8 bg-muted/50 rounded-lg flex flex-col items-center">
+                        <Lock className="w-12 h-12 text-muted-foreground mb-4"/>
+                        <h2 className="text-xl font-bold">कंटेंट लॉक है</h2>
+                        <p className="text-muted-foreground">इस कॉम्बो को खरीदने के बाद आपको यहां सभी PDFs दिखाई देंगे।</p>
+                     </div>
+                )}
             </main>
+            {combo && (
+                <PaymentDialog
+                    isOpen={isPaymentDialogOpen}
+                    setIsOpen={setIsPaymentDialogOpen}
+                    item={combo}
+                    itemType="combo"
+                />
+            )}
         </AppLayout>
     );
 }

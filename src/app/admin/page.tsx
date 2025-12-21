@@ -10,12 +10,18 @@ import {
   serverTimestamp,
   query,
   orderBy,
+  doc,
+  setDoc,
+  getDoc,
+  where,
+  getDocs,
 } from "firebase/firestore";
 import {
   useFirestore,
   useCollection,
   useUser,
   useMemoFirebase,
+  useDoc,
 } from "@/firebase";
 import { addDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import { AppLayout } from "@/components/app-layout";
@@ -27,8 +33,9 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { FileText, Book, Users, DollarSign, Package, LoaderCircle, Send, Library, FolderKanban, ShieldCheck, KeyRound, Settings, Palette } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import type { Paper, User as AppUser, Combo } from "@/lib/types";
+import type { Paper, User as AppUser, Combo, Payment, NoteStyleSettings } from "@/lib/types";
 import { useRouter } from "next/navigation";
+import { Label } from "@/components/ui/label";
 
 const securityCodeSchema = z.object({
   code: z.string().min(1, "कृपया सिक्योरिटी कोड डालें।"),
@@ -38,6 +45,13 @@ const notificationSchema = z.object({
     title: z.string().min(1, "सूचना का शीर्षक आवश्यक है।"),
     message: z.string().min(1, "सूचना का संदेश आवश्यक है।"),
     imageUrl: z.string().url("कृपया एक मान्य इमेज URL डालें।").optional().or(z.literal('')),
+});
+
+const colorCustomizerSchema = z.object({
+    h1Color: z.string(),
+    h2Color: z.string(),
+    textColor: z.string(),
+    highlightColor: z.string(),
 });
 
 
@@ -128,6 +142,64 @@ function AdminGate({ children }: { children: React.ReactNode }) {
 }
 
 
+function NotesColorCustomizer() {
+    const firestore = useFirestore();
+    const { toast } = useToast();
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    const settingsRef = useMemoFirebase(() => doc(firestore, 'settings', 'notesStyle'), [firestore]);
+    const { data: initialSettings, isLoading } = useDoc<NoteStyleSettings>(settingsRef);
+    
+    const form = useForm<z.infer<typeof colorCustomizerSchema>>({
+        resolver: zodResolver(colorCustomizerSchema),
+        defaultValues: {
+            h1Color: '#0D63C6',
+            h2Color: '#2C9D44',
+            textColor: '#333333',
+            highlightColor: '#0D63C6'
+        }
+    });
+    
+    useEffect(() => {
+        if (initialSettings) {
+            form.reset(initialSettings);
+        }
+    }, [initialSettings, form]);
+
+    async function onSubmit(values: z.infer<typeof colorCustomizerSchema>) {
+        setIsSubmitting(true);
+        try {
+            await setDoc(doc(firestore, 'settings', 'notesStyle'), values);
+            toast({ title: "सफलता!", description: "नोट्स के रंग सफलतापूर्वक अपडेट हो गए हैं।" });
+        } catch (error: any) {
+            toast({ variant: "destructive", title: "त्रुटि!", description: error.message });
+        } finally {
+            setIsSubmitting(false);
+        }
+    }
+
+    if (isLoading) {
+        return <div className="flex justify-center p-4"><LoaderCircle className="animate-spin"/></div>
+    }
+
+    return (
+        <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <FormField control={form.control} name="h1Color" render={({ field }) => (<FormItem><FormLabel htmlFor="h1-color">मुख्य हेडिंग (H1)</FormLabel><Input type="color" id="h1-color" {...field} className="h-10 p-1"/> </FormItem>)}/>
+                    <FormField control={form.control} name="h2Color" render={({ field }) => (<FormItem><FormLabel htmlFor="h2-color">सब-हेडिंग (H2)</FormLabel><Input type="color" id="h2-color" {...field} className="h-10 p-1"/> </FormItem>)}/>
+                    <FormField control={form.control} name="textColor" render={({ field }) => (<FormItem><FormLabel htmlFor="text-color">मुख्य टेक्स्ट</FormLabel><Input type="color" id="text-color" {...field} className="h-10 p-1"/> </FormItem>)}/>
+                    <FormField control={form.control} name="highlightColor" render={({ field }) => (<FormItem><FormLabel htmlFor="highlight-color">हाइलाइट (Bold)</FormLabel><Input type="color" id="highlight-color" {...field} className="h-10 p-1"/> </FormItem>)}/>
+                </div>
+                <Button type="submit" disabled={isSubmitting}>
+                  {isSubmitting ? <LoaderCircle className="animate-spin mr-2"/> : <Palette className="mr-2 h-4 w-4" />}
+                  रंग सेव करें
+                </Button>
+            </form>
+        </Form>
+    )
+}
+
 function AdminDashboard() {
   const { toast } = useToast();
   const firestore = useFirestore();
@@ -142,6 +214,9 @@ function AdminDashboard() {
   
   const combosQuery = useMemoFirebase(() => query(collection(firestore, "combos")), [firestore]);
   const { data: combos, isLoading: combosLoading } = useCollection<Combo>(combosQuery);
+
+  const paymentsQuery = useMemoFirebase(() => query(collection(firestore, "payments"), where("status", "==", "SUCCESS")), [firestore]);
+  const { data: payments, isLoading: paymentsLoading } = useCollection<Payment>(paymentsQuery);
   
   const notificationForm = useForm<z.infer<typeof notificationSchema>>({ resolver: zodResolver(notificationSchema), defaultValues: { title: "", message: "", imageUrl: "" } });
 
@@ -166,17 +241,35 @@ function AdminDashboard() {
     { title: "PDF कॉम्बो", icon: Package, link: "/admin/combos" },
   ];
   
+  const { totalRevenue, todayRevenue } = useMemo(() => {
+    if (!payments) return { totalRevenue: 0, todayRevenue: 0 };
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    let total = 0;
+    let todayTotal = 0;
+
+    payments.forEach(p => {
+        total += p.amount;
+        if (p.createdAt?.toDate() >= today) {
+            todayTotal += p.amount;
+        }
+    });
+    return { totalRevenue: total, todayRevenue: todayTotal };
+  }, [payments]);
+
   const analytics = [
     { title: "कुल विषय", value: papersLoading ? <LoaderCircle className="h-5 w-5 animate-spin"/> : papers?.length ?? 0, icon: Library, gradient: "from-blue-500 to-cyan-400" },
     { title: "कुल कॉम्बो", value: combosLoading ? <LoaderCircle className="h-5 w-5 animate-spin"/> : combos?.length ?? 0, icon: Package, gradient: "from-purple-500 to-pink-500" },
     { title: "कुल यूज़र", value: usersLoading ? <LoaderCircle className="h-5 w-5 animate-spin"/> : users?.length ?? 0, icon: Users, gradient: "from-green-500 to-teal-400" },
-    { title: "आज की कमाई", value: "₹ 0", icon: DollarSign, gradient: "from-yellow-500 to-orange-500" },
+    { title: "आज की कमाई", value: paymentsLoading ? <LoaderCircle className="h-5 w-5 animate-spin"/> : `₹ ${todayRevenue.toFixed(2)}`, icon: DollarSign, gradient: "from-yellow-500 to-orange-500" },
+    { title: "कुल कमाई", value: paymentsLoading ? <LoaderCircle className="h-5 w-5 animate-spin"/> : `₹ ${totalRevenue.toFixed(2)}`, icon: DollarSign, gradient: "from-red-500 to-pink-500" },
   ];
 
   return (
     <div className="p-4 sm:p-6 space-y-6 bg-muted/20">
       <h1 className="font-headline text-3xl font-bold text-foreground">Admin Dashboard – MPPSC & Civil Notes</h1>
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
         {analytics.map(item => <Card key={item.title} className={cn("text-white border-0 shadow-lg", item.gradient)}><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">{item.title}</CardTitle><item.icon className="h-5 w-5 opacity-80" /></CardHeader><CardContent><div className="text-3xl font-bold">{item.value}</div></CardContent></Card>)}
       </div>
 
@@ -203,30 +296,8 @@ function AdminDashboard() {
 
       <Card>
         <CardHeader><CardTitle>AI नोट्स स्टाइल कस्टमाइज़र</CardTitle><CardDescription>यहां से AI द्वारा जेनरेट किए गए नोट्स के रंग और स्टाइल को बदलें।</CardDescription></CardHeader>
-        <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="space-y-2">
-                    <Label htmlFor="h1-color">मुख्य हेडिंग (H1)</Label>
-                    <Input type="color" id="h1-color" defaultValue="#0D63C6" className="h-10 p-1" disabled/>
-                </div>
-                <div className="space-y-2">
-                    <Label htmlFor="h2-color">सब-हेडिंग (H2)</Label>
-                    <Input type="color" id="h2-color" defaultValue="#2C9D44" className="h-10 p-1" disabled/>
-                </div>
-                <div className="space-y-2">
-                    <Label htmlFor="text-color">मुख्य टेक्स्ट</Label>
-                    <Input type="color" id="text-color" defaultValue="#333333" className="h-10 p-1" disabled/>
-                </div>
-                 <div className="space-y-2">
-                    <Label htmlFor="highlight-color">हाइलाइट (Bold)</Label>
-                    <Input type="color" id="highlight-color" defaultValue="#0D63C6" className="h-10 p-1" disabled/>
-                </div>
-            </div>
-            <div className="text-center p-4 border rounded-lg bg-gray-100 dark:bg-gray-800">
-                <Palette className="mx-auto w-8 h-8 text-gray-500 mb-2"/>
-                <p className="font-semibold">यह सुविधा जल्द ही आ रही है</p>
-                <p className="text-sm text-muted-foreground">जल्द ही आप यहीं से नोट्स का लुक और फील बदल पाएंगे।</p>
-            </div>
+        <CardContent>
+            <NotesColorCustomizer />
         </CardContent>
       </Card>
       
