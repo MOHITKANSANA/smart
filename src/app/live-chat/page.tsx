@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser, useFirestore, useCollection, useDoc, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, addDoc, serverTimestamp, doc, setDoc } from 'firebase/firestore';
+import { collection, query, orderBy, addDoc, serverTimestamp, doc, setDoc, getDoc } from 'firebase/firestore';
 import { AppLayout } from '@/components/app-layout';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -48,9 +48,6 @@ export default function LiveChatPage() {
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const { toast } = useToast();
 
-    const userDocRef = useMemoFirebase(() => user ? doc(firestore, 'users', user.uid) : null, [firestore, user]);
-    const { data: appUser } = useDoc<AppUser>(userDocRef);
-
     const messagesQuery = useMemoFirebase(
         () => user ? query(collection(firestore, `live-chats/${user.uid}/messages`), orderBy('createdAt', 'asc')) : null,
         [firestore, user]
@@ -63,40 +60,43 @@ export default function LiveChatPage() {
 
     const handleSendMessage = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!newMessage.trim() || !user || !appUser) {
-            toast({
-                variant: 'destructive',
-                title: 'त्रुटि',
-                description: 'संदेश भेजने के लिए आपका लॉगिन होना और प्रोफाइल डेटा लोड होना आवश्यक है।'
-            });
+        if (!newMessage.trim() || !user) {
             return;
         }
         
         setIsSending(true);
 
-        const messageData = {
-            text: newMessage,
-            senderId: user.uid,
-            createdAt: serverTimestamp(),
-        };
-
-        const sessionData = {
-            id: user.uid,
-            userName: appUser.fullName,
-            userEmail: appUser.email,
-            lastMessage: newMessage,
-            lastMessageAt: serverTimestamp(),
-            isReadByAdmin: false,
-        };
-
         try {
+            // Fetch user profile data on demand to create/update chat session
+            const userDocRef = doc(firestore, 'users', user.uid);
+            const userDocSnap = await getDoc(userDocRef);
+
+            if (!userDocSnap.exists()) {
+                throw new Error("आपका प्रोफ़ाइल नहीं मिला।");
+            }
+            const appUser = userDocSnap.data() as AppUser;
+
+            const messageData = {
+                text: newMessage,
+                senderId: user.uid,
+                createdAt: serverTimestamp(),
+            };
+
+            const sessionData = {
+                id: user.uid,
+                userName: appUser.fullName,
+                userEmail: appUser.email,
+                lastMessage: newMessage,
+                lastMessageAt: serverTimestamp(),
+                isReadByAdmin: false,
+            };
+
             // Use Promise.all to run both Firestore operations concurrently
             await Promise.all([
                 addDoc(collection(firestore, `live-chats/${user.uid}/messages`), messageData),
                 setDoc(doc(firestore, `chat-sessions/${user.uid}`), sessionData, { merge: true })
             ]);
             
-            // Clear the input field only after successful submission
             setNewMessage('');
 
         } catch (error: any) {
