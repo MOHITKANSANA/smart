@@ -71,15 +71,15 @@ export type Notification = {
 }
 
 export type Payment = {
-    id?: string;
+    id: string;
     userId: string;
     itemId: string;
     itemType: 'pdf' | 'combo';
     amount: number;
-    orderId: string;
-    paymentId: string;
     status: 'PENDING' | 'SUCCESS' | 'FAILED';
     createdAt: any; // Firestore ServerTimestamp
+    updatedAt?: any;
+    error?: string;
 }
 
 export type NoteStyleSettings = {
@@ -88,3 +88,5 @@ export type NoteStyleSettings = {
     textColor: string;
     highlightColor: string;
 }
+
+    

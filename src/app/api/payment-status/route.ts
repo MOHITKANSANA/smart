@@ -2,26 +2,34 @@
 'use server';
 
 import { NextRequest, NextResponse } from 'next/server';
-import { doc, getDoc, updateDoc, arrayUnion } from 'firebase/firestore';
+import { FieldValue } from 'firebase-admin/firestore';
 import { initializeApp, getApps, App, cert } from "firebase-admin/app";
 import { getFirestore as getAdminFirestore } from 'firebase-admin/firestore';
 import crypto from 'crypto';
 
-// Initialize Firebase Admin SDK
 let adminApp: App;
-// Check if running in a serverless environment and use service account from env vars
-if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY && !getApps().length) {
-    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
-    adminApp = initializeApp({
-        credential: cert(serviceAccount)
-    });
-} else if (!getApps().length) {
-    // Fallback for local development or environments without the specific env var
-    adminApp = initializeApp();
+
+if (!getApps().length) {
+    try {
+        if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
+            const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
+            adminApp = initializeApp({
+                credential: cert(serviceAccount)
+            });
+        } else {
+            // Fallback for local development or environments without the specific env var
+            adminApp = initializeApp();
+        }
+    } catch (error) {
+        console.error("Firebase Admin initialization error:", error);
+    }
 } else {
     adminApp = getApps()[0];
 }
+
+
 const adminFirestore = getAdminFirestore(adminApp);
+
 
 // Function to verify Cashfree signature
 function verifySignature(orderId: string, txStatus: string, signature: string): boolean {
@@ -39,14 +47,18 @@ function verifySignature(orderId: string, txStatus: string, signature: string): 
 }
 
 async function handleSuccessfulPayment(orderId: string) {
-    const paymentRef = doc(adminFirestore, 'payments', orderId);
-    const paymentDoc = await getDoc(paymentRef);
+    const paymentRef = adminFirestore.doc(`payments/${orderId}`);
+    const paymentDoc = await paymentRef.get();
 
-    if (!paymentDoc.exists()) {
+    if (!paymentDoc.exists) {
         throw new Error(`Payment document not found for orderId: ${orderId}`);
     }
 
     const paymentData = paymentDoc.data();
+    if (!paymentData) {
+         throw new Error(`Payment data is empty for orderId: ${orderId}`);
+    }
+
     // Prevent re-processing a successful payment
     if (paymentData.status === 'SUCCESS') {
         console.log(`Order ${orderId} already processed as SUCCESS.`);
@@ -56,20 +68,20 @@ async function handleSuccessfulPayment(orderId: string) {
     const { userId, itemId } = paymentData;
 
     // Update payment document to SUCCESS
-    await updateDoc(paymentRef, { status: 'SUCCESS', updatedAt: new Date() });
+    await paymentRef.update({ status: 'SUCCESS', updatedAt: new Date() });
 
     // Add purchased item to the user's document
-    const userRef = doc(adminFirestore, 'users', userId);
-    await updateDoc(userRef, {
-        purchasedItems: arrayUnion(itemId),
+    const userRef = adminFirestore.doc(`users/${userId}`);
+    await userRef.update({
+        purchasedItems: FieldValue.arrayUnion(itemId),
     });
 
     console.log(`Successfully processed payment for order ${orderId}.`);
 }
 
 async function handleFailedPayment(orderId: string, failureReason: string | null) {
-    const paymentRef = doc(adminFirestore, 'payments', orderId);
-    await updateDoc(paymentRef, { 
+    const paymentRef = adminFirestore.doc(`payments/${orderId}`);
+    await paymentRef.update({ 
         status: 'FAILED',
         error: failureReason || 'Payment failed or was cancelled.',
         updatedAt: new Date(),
@@ -126,14 +138,17 @@ export async function GET(req: NextRequest) {
     }
 
     try {
-        const paymentRef = doc(adminFirestore, 'payments', orderId);
-        const paymentDoc = await getDoc(paymentRef);
+        const paymentRef = adminFirestore.doc(`payments/${orderId}`);
+        const paymentDoc = await paymentRef.get();
 
-        if (!paymentDoc.exists()) {
+        if (!paymentDoc.exists) {
              return NextResponse.redirect(new URL('/home?payment=failed&reason=not_found', req.url));
         }
         
         const paymentData = paymentDoc.data();
+        if (!paymentData) {
+            return NextResponse.redirect(new URL('/home?payment=failed&reason=no_data', req.url));
+        }
 
         // Redirect based on the status found in Firestore, which was updated by the webhook.
         const baseUrl = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin;
@@ -148,3 +163,5 @@ export async function GET(req: NextRequest) {
         return NextResponse.redirect(new URL('/home?payment=failed&reason=server_error', req.url));
     }
 }
+
+    

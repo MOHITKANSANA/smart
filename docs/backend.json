@@ -26,6 +26,13 @@
         "role": {
           "type": "string",
           "description": "The role of the user (e.g., Student, Admin)."
+        },
+        "purchasedItems": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            },
+            "description": "An array of item IDs (pdf/combo) that the user has purchased."
         }
       },
       "required": [
@@ -279,6 +286,23 @@
         }
       },
       "required": ["id", "title", "message", "createdAt"]
+    },
+    "Payment": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "title": "Payment",
+        "type": "object",
+        "description": "Represents a payment transaction record.",
+        "properties": {
+            "id": { "type": "string", "description": "Unique identifier for the payment (usually the orderId)." },
+            "userId": { "type": "string", "description": "The ID of the user who made the payment." },
+            "itemId": { "type": "string", "description": "The ID of the purchased item (PDF or Combo)." },
+            "itemType": { "type": "string", "enum": ["pdf", "combo"], "description": "The type of the purchased item." },
+            "amount": { "type": "number", "description": "The amount paid." },
+            "status": { "type": "string", "enum": ["PENDING", "SUCCESS", "FAILED"], "description": "The status of the payment." },
+            "createdAt": { "type": "string", "format": "date-time", "description": "Timestamp of when the payment was initiated." },
+            "updatedAt": { "type": "string", "format": "date-time", "description": "Timestamp of the last status update." }
+        },
+        "required": ["id", "userId", "itemId", "itemType", "amount", "status", "createdAt"]
     }
   },
   "auth": {
@@ -368,7 +392,19 @@
           },
           "description": "Stores notifications sent to users."
         }
+      },
+      {
+        "path": "/payments/{orderId}",
+        "definition": {
+            "entityName": "Payment",
+            "schema": {
+                "$ref": "#/backend/entities/Payment"
+            },
+            "description": "Stores payment transaction records."
+        }
       }
     ]
   }
 }
+
+    

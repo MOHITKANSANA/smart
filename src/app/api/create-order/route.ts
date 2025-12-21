@@ -2,10 +2,34 @@
 'use server';
 
 import { NextRequest, NextResponse } from 'next/server';
+import { initializeApp, getApps, App, cert } from "firebase-admin/app";
+import { getFirestore as getAdminFirestore } from 'firebase-admin/firestore';
+
+let adminApp: App;
+
+if (!getApps().length) {
+    try {
+        if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
+            const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
+            adminApp = initializeApp({
+                credential: cert(serviceAccount)
+            });
+        } else {
+            // Fallback for local development or environments without the specific env var
+            adminApp = initializeApp();
+        }
+    } catch (error) {
+        console.error("Firebase Admin initialization error:", error);
+    }
+} else {
+    adminApp = getApps()[0];
+}
+
 
 // This is the server-side API route that creates a payment order with Cashfree.
 export async function POST(req: NextRequest) {
   try {
+    const adminFirestore = getAdminFirestore(adminApp);
     const body = await req.json();
     const { userId, userEmail, userPhone, userName, item, itemType } = body;
 
@@ -21,10 +45,22 @@ export async function POST(req: NextRequest) {
     }
 
     const orderId = `order_${Date.now()}`;
-    // Use the production Netlify URL for the return_url as Cashfree requires a public, trusted domain.
     const returnUrl = `https://pcsnote.netlify.app/api/payment-status`;
     
-    // 3. Construct the request body for Cashfree API
+    // 3. Create a PENDING payment record in Firestore
+    const paymentRef = adminFirestore.doc(`payments/${orderId}`);
+    await paymentRef.set({
+        id: orderId,
+        userId: userId,
+        itemId: item.id,
+        itemType: itemType,
+        amount: item.price,
+        status: 'PENDING',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+    });
+
+    // 4. Construct the request body for Cashfree API
     const requestBody = {
       order_id: orderId,
       order_amount: Number(item.price),
@@ -64,6 +100,8 @@ export async function POST(req: NextRequest) {
     if (!response.ok) {
         console.error('Cashfree API Error:', responseData);
         const errorMessage = responseData.message || 'Failed to create order with Cashfree';
+        // Update Firestore record to FAILED
+        await paymentRef.update({ status: 'FAILED', error: errorMessage, updatedAt: new Date() });
         return NextResponse.json({ error: errorMessage }, { status: response.status });
     }
     
@@ -78,3 +116,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: error.message || 'An unknown server error occurred.' }, { status: 500 });
   }
 }
+
+    
