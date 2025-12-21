@@ -9,14 +9,15 @@ import { getFirestore as getAdminFirestore } from 'firebase-admin/firestore';
 // Initialize Firebase Admin SDK
 let adminApp: App;
 if (!getApps().length) {
-    // Check if running in a serverless environment and use service account from env vars
     if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
         const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
         adminApp = initializeApp({
             credential: cert(serviceAccount)
         });
     } else {
-        // Fallback for local development or environments without the specific env var
+        // This will likely fail in a serverless environment if the service account key isn't set,
+        // but it's a necessary fallback for local or different setups.
+        console.warn("FIREBASE_SERVICE_ACCOUNT_KEY environment variable not found. Attempting default initialization.");
         adminApp = initializeApp();
     }
 } else {
@@ -43,14 +44,13 @@ export async function POST(req: NextRequest) {
     }
 
     const orderId = `order_${Date.now()}`;
-    // Construct a dynamic, secure return URL.
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://example.com';
     const returnUrl = `${baseUrl}/api/payment-status?order_id={order_id}`;
     
     // 3. Construct the request body for Cashfree API
     const requestBody = {
       order_id: orderId,
-      order_amount: Number(item.price), // Using the actual item price from the request
+      order_amount: Number(item.price),
       order_currency: "INR",
       order_note: `Payment for ${item.name}`,
       customer_details: {
@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
       },
        order_meta: {
         return_url: returnUrl,
-        notify_url: `${baseUrl}/api/payment-status`, // Optional: for server-to-server webhooks
+        notify_url: `${baseUrl}/api/payment-status`,
       },
       order_tags: {
         itemId: item.id,
@@ -111,6 +111,11 @@ export async function POST(req: NextRequest) {
 
   } catch (error: any) {
     console.error('Order creation API error:', error);
+    // Check for a very specific Firebase error to give a more helpful message
+    if (error.message && error.message.includes('Could not find settings for project')) {
+         return NextResponse.json({ error: 'Server is not configured to connect to Firebase. Check service account credentials.' }, { status: 500 });
+    }
     return NextResponse.json({ error: error.message || 'An unknown server error occurred.' }, { status: 500 });
   }
 }
+
