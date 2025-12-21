@@ -1,10 +1,10 @@
 
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { LoaderCircle, ChevronRight, WandSparkles } from "lucide-react";
+import { LoaderCircle, ChevronRight, WandSparkles, DollarSign } from "lucide-react";
 import { collection, query, orderBy, limit } from "firebase/firestore";
 import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
 import { AppLayout } from "@/components/app-layout";
@@ -16,9 +16,11 @@ import {
 } from "@/components/ui/accordion";
 import { Card, CardTitle, CardDescription } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import type { Paper, Combo, Tab } from "@/lib/types";
+import type { Paper, Combo, Tab, PdfDocument } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
+import PaymentDialog from "@/components/payment-dialog";
+
 
 const topicGradients = [
     'from-blue-500 to-indigo-600',
@@ -137,6 +139,14 @@ export default function HomePage() {
   const firestore = useFirestore();
   const router = useRouter();
 
+  const [isTestPaymentOpen, setIsTestPaymentOpen] = useState(false);
+  const testPaymentItem = {
+    id: "test_item_001",
+    name: "टेस्ट पेमेंट",
+    price: 1,
+  };
+
+
   const papersQuery = useMemoFirebase(() => query(collection(firestore, "papers"), orderBy("paperNumber")), [firestore]);
   const { data: papers, isLoading: papersLoading } = useCollection<Paper>(papersQuery);
 
@@ -157,17 +167,32 @@ export default function HomePage() {
         )}
 
         <div className="space-y-8">
-            <Link href="/ai-notes-generator" className="block group">
-              <Card className="p-6 bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500 text-white shadow-lg hover:shadow-xl transition-shadow">
-                <div className="flex items-center justify-between">
-                    <div>
-                        <CardTitle className="text-2xl font-headline">AI Notes जेनरेटर</CardTitle>
-                        <CardDescription className="text-white/80">रंगीन और आकर्षक नोट्स बनाएं</CardDescription>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Link href="/ai-notes-generator" className="block group">
+                  <Card className="p-6 bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500 text-white shadow-lg hover:shadow-xl transition-shadow h-full">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <CardTitle className="text-2xl font-headline">AI Notes जेनरेटर</CardTitle>
+                            <CardDescription className="text-white/80">रंगीन और आकर्षक नोट्स बनाएं</CardDescription>
+                        </div>
+                        <WandSparkles className="w-10 h-10 group-hover:animate-pulse" />
                     </div>
-                    <WandSparkles className="w-10 h-10 group-hover:animate-pulse" />
+                  </Card>
+                </Link>
+
+                <div onClick={() => setIsTestPaymentOpen(true)} className="block group cursor-pointer">
+                    <Card className="p-6 bg-gradient-to-r from-teal-400 via-cyan-500 to-sky-600 text-white shadow-lg hover:shadow-xl transition-shadow h-full">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <CardTitle className="text-2xl font-headline">टेस्ट पेमेंट</CardTitle>
+                                <CardDescription className="text-white/80">पेमेंट गेटवे की जाँच करें (₹1)</CardDescription>
+                            </div>
+                            <DollarSign className="w-10 h-10 group-hover:animate-pulse" />
+                        </div>
+                    </Card>
                 </div>
-              </Card>
-            </Link>
+            </div>
+
 
             {papers && papers.length > 0 && (
               <div className="space-y-4">
@@ -199,7 +224,16 @@ export default function HomePage() {
             )}
         </div>
       </main>
+
+      <PaymentDialog
+        isOpen={isTestPaymentOpen}
+        setIsOpen={setIsTestPaymentOpen}
+        item={testPaymentItem}
+        itemType="test"
+      />
     </AppLayout>
   );
 }
+    
+
     

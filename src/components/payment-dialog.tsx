@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -17,26 +18,21 @@ import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import type { User as AppUser } from '@/lib/types';
+import { useCashfree } from '@/hooks/use-cashfree';
 
 interface PaymentDialogProps {
   isOpen: boolean;
   setIsOpen: (isOpen: boolean) => void;
-  item: Combo | PdfDocument;
-  itemType: 'combo' | 'pdf';
+  item: Combo | PdfDocument | { id: string, name: string, price: number };
+  itemType: 'combo' | 'pdf' | 'test';
 }
-
-declare global {
-    interface Window {
-        Cashfree: any;
-    }
-}
-
 
 export default function PaymentDialog({ isOpen, setIsOpen, item, itemType }: PaymentDialogProps) {
     const { user } = useUser();
     const firestore = useFirestore();
     const { toast } = useToast();
     const [isProcessing, setIsProcessing] = useState(false);
+    const { isReady: isSdkReady } = useCashfree();
 
     const userDocRef = useMemoFirebase(() => user ? doc(firestore, 'users', user.uid) : null, [firestore, user]);
     const { data: appUser } = useDoc<AppUser>(userDocRef);
@@ -46,14 +42,16 @@ export default function PaymentDialog({ isOpen, setIsOpen, item, itemType }: Pay
         try {
             console.log("Payment started for item:", item.name);
 
-            if (typeof window === "undefined" || !window.Cashfree) {
-                toast({ variant: 'destructive', title: 'त्रुटि', description: 'Cashfree SDK लोड नहीं हुई। कृपया पेज को रीफ़्रेश करें।' });
+            if (!isSdkReady) {
+                toast({ variant: 'destructive', title: 'त्रुटि', description: 'कैशफ्री SDK लोड नहीं हुई है, कृपया कुछ क्षण प्रतीक्षा करें।' });
                 setIsProcessing(false);
                 return;
             }
+
+            const isTestPayment = itemType === 'test';
             
-            if (!user || !appUser) {
-                toast({ variant: 'destructive', title: 'त्रुटि', description: 'उपयोगकर्ता डेटा लोड नहीं हुआ। कृपया पुनः प्रयास करें।' });
+            if (!user && !isTestPayment) {
+                toast({ variant: 'destructive', title: 'त्रुटि', description: 'उपयोगकर्ता लॉग इन नहीं है।' });
                 setIsProcessing(false);
                 return;
             }
@@ -62,10 +60,10 @@ export default function PaymentDialog({ isOpen, setIsOpen, item, itemType }: Pay
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    userId: user.uid,
-                    userName: appUser.fullName,
-                    userEmail: user.email,
-                    userPhone: appUser.mobileNumber,
+                    userId: isTestPayment ? 'test_user_001' : user!.uid,
+                    userName: isTestPayment ? 'Test User' : (appUser?.fullName || user?.email),
+                    userEmail: isTestPayment ? 'test@example.com' : user!.email,
+                    userPhone: appUser?.mobileNumber,
                     item: { id: item.id, name: item.name, price: item.price || 0 },
                     itemType: itemType,
                 })
@@ -116,8 +114,21 @@ export default function PaymentDialog({ isOpen, setIsOpen, item, itemType }: Pay
                 </div>
                 
                 <DialogFooter className="flex flex-col gap-2">
-                    <Button onClick={handlePayment} disabled={isProcessing} className="w-full h-12 text-lg">
-                        {isProcessing ? <LoaderCircle className="animate-spin" /> : `₹${item.price} का भुगतान करें`}
+                    <Button 
+                        onClick={handlePayment} 
+                        disabled={isProcessing || !isSdkReady} 
+                        className="w-full h-12 text-lg"
+                    >
+                        {isProcessing ? (
+                            <LoaderCircle className="animate-spin" />
+                        ) : !isSdkReady ? (
+                             <>
+                                <LoaderCircle className="animate-spin mr-2" />
+                                SDK लोड हो रहा है...
+                             </>
+                        ) : (
+                             `₹${item.price} का भुगतान करें`
+                        )}
                     </Button>
                     <DialogClose asChild>
                         <Button variant="ghost" className="w-full">रद्द करें</Button>
@@ -127,3 +138,5 @@ export default function PaymentDialog({ isOpen, setIsOpen, item, itemType }: Pay
         </Dialog>
     );
 }
+
+    

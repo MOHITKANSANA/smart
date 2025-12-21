@@ -1,3 +1,4 @@
+
 'use server';
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -13,7 +14,6 @@ export async function POST(req: NextRequest) {
 
     const orderId = `order_${randomUUID()}`;
     
-    // Using Cashfree's PRODUCTION endpoint
     const response = await fetch("https://api.cashfree.com/pg/orders", {
         method: "POST",
         headers: {
@@ -28,12 +28,12 @@ export async function POST(req: NextRequest) {
           order_currency: "INR",
           customer_details: {
             customer_id: userId,
-            customer_email: userEmail,
+            customer_email: userEmail || 'default-email@example.com',
             customer_phone: userPhone || "9999999999",
-            customer_name: userName,
+            customer_name: userName || 'User',
           },
           order_meta: {
-            return_url: `https://studiopublicproxy-4x6y3j5qxq-uc.a.run.app/api/payment-status?order_id={order_id}`,
+             return_url: `https://studiopublicproxy-4x6y3j5qxq-uc.a.run.app/api/payment-status?order_id={order_id}`,
           },
           order_note: `Payment for ${item.name}`,
         }),
@@ -42,30 +42,32 @@ export async function POST(req: NextRequest) {
     const data = await response.json();
 
     if (!response.ok) {
-        throw new Error(data.message || 'Cashfree API Error');
+        console.error("Cashfree API Error Response:", data);
+        const errorMessage = data.message || 'Cashfree API Error';
+        return NextResponse.json({ error: errorMessage }, { status: response.status });
     }
     
-    // Store the pending payment in Firestore before sending the response to the client
-    const { getFirestore: getAdminFirestore, Timestamp } = await import('firebase-admin/firestore');
-    const { initializeApp, getApps } = await import('firebase-admin/app');
+    // For test payments, we don't need to save to Firestore.
+    if (itemType !== 'test') {
+        const { getFirestore: getAdminFirestore, Timestamp } = await import('firebase-admin/firestore');
+        const { initializeApp, getApps, cert } = await import('firebase-admin/app');
 
-    // Check if the app is already initialized
-    if (getApps().length === 0) {
-        initializeApp();
+        if (getApps().length === 0) {
+            initializeApp();
+        }
+        
+        const adminFirestore = getAdminFirestore();
+        const paymentRef = adminFirestore.collection('payments').doc(orderId);
+        await paymentRef.set({
+            userId: userId,
+            itemId: item.id,
+            itemType: itemType,
+            amount: item.price,
+            orderId: orderId,
+            status: 'PENDING',
+            createdAt: Timestamp.now(),
+        });
     }
-    
-    const adminFirestore = getAdminFirestore();
-    const paymentRef = adminFirestore.collection('payments').doc(orderId);
-    await paymentRef.set({
-        userId: userId,
-        itemId: item.id,
-        itemType: itemType,
-        amount: item.price,
-        orderId: orderId,
-        status: 'PENDING',
-        createdAt: Timestamp.now(),
-    });
-
 
     return NextResponse.json({
         payment_session_id: data.payment_session_id,
@@ -76,3 +78,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: error.message || 'Failed to create payment session' }, { status: 500 });
   }
 }
+
+    
