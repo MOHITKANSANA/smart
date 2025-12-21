@@ -39,15 +39,13 @@ export default function PaymentDialog({ isOpen, setIsOpen, item, itemType }: Pay
     const [isProcessing, setIsProcessing] = useState(false);
 
     const userDocRef = useMemoFirebase(() => user ? doc(firestore, 'users', user.uid) : null, [firestore, user]);
-    const { data: appUser, isLoading: isAppUserLoading } = useDoc<AppUser>(userDocRef);
-
-    const isDataReady = !isUserLoading && !isAppUserLoading && user && appUser;
+    const { data: appUser } = useDoc<AppUser>(userDocRef);
 
     const handlePayment = async () => {
         setIsProcessing(true);
 
-        if (!isDataReady) {
-            toast({ variant: 'destructive', title: 'त्रुटि', description: 'उपयोगकर्ता डेटा पूरी तरह से लोड नहीं हुआ है। कृपया कुछ सेकंड प्रतीक्षा करें।' });
+        if (!user) {
+            toast({ variant: 'destructive', title: 'त्रुटि', description: 'भुगतान करने से पहले कृपया लॉगिन करें।' });
             setIsProcessing(false);
             return;
         }
@@ -58,9 +56,9 @@ export default function PaymentDialog({ isOpen, setIsOpen, item, itemType }: Pay
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     userId: user.uid,
-                    userName: appUser.fullName,
-                    userEmail: appUser.email,
-                    userPhone: appUser.mobileNumber,
+                    userName: appUser?.fullName || user.displayName || 'Guest User',
+                    userEmail: appUser?.email || user.email,
+                    userPhone: appUser?.mobileNumber,
                     item: item,
                 })
             });
@@ -120,8 +118,8 @@ export default function PaymentDialog({ isOpen, setIsOpen, item, itemType }: Pay
                 </div>
                 
                 <DialogFooter className="flex flex-col gap-2">
-                    <Button onClick={handlePayment} disabled={!isDataReady || isProcessing} className="w-full h-12 text-lg">
-                        {(!isDataReady || isProcessing) ? <LoaderCircle className="animate-spin" /> : `₹${item.price} का भुगतान करें`}
+                    <Button onClick={handlePayment} disabled={isProcessing} className="w-full h-12 text-lg">
+                        {isProcessing ? <LoaderCircle className="animate-spin" /> : `₹${item.price} का भुगतान करें`}
                     </Button>
                     <DialogClose asChild>
                         <Button variant="ghost" className="w-full">रद्द करें</Button>
