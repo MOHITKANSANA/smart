@@ -51,16 +51,18 @@ export default function ComboDetailPage() {
     const firestore = useFirestore();
     const router = useRouter();
     const params = useParams();
-    const { user } = useUser();
+    const { user, isUserLoading } = useUser();
     const comboId = params.comboId as string;
     
     const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
     
     const userDocRef = useMemoFirebase(() => user ? doc(firestore, 'users', user.uid) : null, [firestore, user]);
-    const { data: appUser, isLoading: isUserLoading } = useDoc<AppUser>(userDocRef);
+    const { data: appUser } = useDoc<AppUser>(userDocRef);
 
     const comboRef = useMemoFirebase(() => doc(firestore, 'combos', comboId), [firestore, comboId]);
     const { data: combo, isLoading: isLoadingCombo } = useDoc<Combo>(comboRef);
+
+    const isDataLoading = isUserLoading || !appUser;
 
     const hasAccess = useMemo(() => {
         if (!combo || !appUser) return false;
@@ -68,7 +70,7 @@ export default function ComboDetailPage() {
         return appUser.purchasedItems?.includes(combo.id) ?? false;
     }, [combo, appUser]);
     
-    const isLoading = isLoadingCombo || isUserLoading;
+    const isLoading = isLoadingCombo;
 
     if (isLoading) {
         return (
@@ -116,8 +118,8 @@ export default function ComboDetailPage() {
                                 <CardTitle className="text-yellow-200">यह एक पेड कॉम्बो है</CardTitle>
                                 <CardDescription className="text-yellow-300/80">इस कॉम्बो के सभी PDFs को एक्सेस करने के लिए अभी खरीदें।</CardDescription>
                             </div>
-                            <Button onClick={handleBuyNow} className="bg-gradient-to-r from-yellow-400 to-orange-500 text-black font-bold shadow-lg w-full sm:w-auto" disabled={isUserLoading}>
-                                {isUserLoading ? (
+                            <Button onClick={handleBuyNow} className="bg-gradient-to-r from-yellow-400 to-orange-500 text-black font-bold shadow-lg w-full sm:w-auto" disabled={isDataLoading}>
+                                {isDataLoading ? (
                                     <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
                                 ) : (
                                     <ShoppingCart className="mr-2 h-4 w-4" />
