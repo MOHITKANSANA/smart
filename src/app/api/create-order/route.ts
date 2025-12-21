@@ -3,7 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { initializeApp, getApps, App, cert } from "firebase-admin/app";
-import { getFirestore as getAdminFirestore } from 'firebase-admin/firestore';
+import { getFirestore as getAdminFirestore, doc, setDoc } from 'firebase-admin/firestore';
 
 // This is the server-side API route that creates a payment order with Cashfree.
 export async function POST(req: NextRequest) {
@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
   }
 
   const adminFirestore = getAdminFirestore(adminApp);
-  const { doc, setDoc, serverTimestamp } = await import('firebase-admin/firestore');
+  const { serverTimestamp } = await import('firebase-admin/firestore');
 
 
   try {
