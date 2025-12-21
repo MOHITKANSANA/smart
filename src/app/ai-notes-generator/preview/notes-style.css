@@ -1,46 +1,73 @@
 /* Custom styles for the generated colorful notes */
 .colorful-notes {
-    line-height: 1.7;
-    color: hsl(var(--card-foreground) / 0.9);
+    line-height: 1.8;
+    color: #333; /* Darker text for better readability */
+    background-color: #ffffff; /* Clean white background */
 }
 
+.dark .colorful-notes {
+    color: hsl(var(--foreground) / 0.9);
+    background-color: hsl(var(--background));
+}
+
+
 .colorful-notes h1 {
-    font-size: 2.5em;
+    font-size: 2.6em;
     font-weight: 800;
     margin-bottom: 1em;
-    border-bottom: 3px solid #007bff; /* Vibrant Blue */
-    padding-bottom: 0.3em;
-    color: #0056b3; /* Darker Blue */
+    border-bottom: 4px solid #0D63C6; /* Deeper Blue */
+    padding-bottom: 0.4em;
+    color: #0A4A99; /* Even Darker Blue */
     font-family: var(--font-headline);
+}
+
+.dark .colorful-notes h1 {
+    border-color: hsl(var(--primary));
+    color: hsl(var(--primary));
 }
 
 .colorful-notes h2 {
-    font-size: 2em;
+    font-size: 2.1em;
     font-weight: 700;
-    margin-top: 1.5em;
+    margin-top: 1.8em;
     margin-bottom: 1em;
-    padding-left: 0.5em;
-    border-left: 4px solid #28a745; /* Green */
-    color: #218838; /* Darker Green */
+    padding-left: 0.6em;
+    border-left: 5px solid #2C9D44; /* Stronger Green */
+    color: #1A7431; /* Darker, more saturated Green */
     font-family: var(--font-headline);
 }
 
+.dark .colorful-notes h2 {
+    border-color: #34d399; /* Emerald 400 */
+    color: #a7f3d0; /* Emerald 200 */
+}
+
 .colorful-notes h3 {
-    font-size: 1.5em;
+    font-size: 1.6em;
     font-weight: 600;
     margin-top: 1.5em;
     margin-bottom: 0.8em;
-    color: #dc3545; /* Red */
+    color: #E65100; /* Deep Orange */
+}
+
+.dark .colorful-notes h3 {
+     color: #f59e0b; /* Amber 500 */
 }
 
 .colorful-notes p {
     margin-bottom: 1.25em;
+    font-size: 1.1em;
 }
 
 .colorful-notes strong {
-    color: #0056b3; /* Darker Blue for emphasis */
+    color: #0D63C6; /* Deeper Blue for emphasis */
     font-weight: 700;
 }
+
+.dark .colorful-notes strong {
+    color: hsl(var(--primary));
+}
+
 
 .colorful-notes ul, .colorful-notes ol {
     padding-left: 2em;
@@ -48,43 +75,64 @@
 }
 
 .colorful-notes li {
-    margin-bottom: 0.5em;
+    margin-bottom: 0.6em;
+    font-size: 1.05em;
 }
 
 .colorful-notes ul > li::marker {
-    color: #28a745; /* Green */
+    color: #2C9D44; /* Green */
     font-weight: bold;
 }
 
 .colorful-notes ol > li::marker {
-    color: #007bff; /* Vibrant Blue */
+    color: #0D63C6; /* Deeper Blue */
     font-weight: bold;
 }
 
 .colorful-notes a {
     color: #17a2b8; /* Teal/Info color */
     text-decoration: underline;
-    text-decoration-color: hsl(var(--accent) / 0.5);
+    text-decoration-color: #86d8e5;
     transition: color 0.2s;
 }
 
 .colorful-notes a:hover {
-    color: #007bff;
+    color: #0D63C6;
 }
 
+.dark .colorful-notes a {
+    color: hsl(var(--accent));
+    text-decoration-color: hsl(var(--accent) / 0.5);
+}
+
+.dark .colorful-notes a:hover {
+    color: hsl(var(--primary));
+}
+
+
 .colorful-notes code {
-    background-color: hsl(var(--muted));
+    background-color: #f0f0f0;
     padding: 0.2em 0.4em;
     border-radius: 0.3em;
     font-size: 0.9em;
-    color: hsl(var(--muted-foreground));
+    color: #333;
     font-family: var(--font-code);
 }
 
+.dark .colorful-notes code {
+    background-color: hsl(var(--muted));
+    color: hsl(var(--muted-foreground));
+}
+
 .colorful-notes blockquote {
-    border-left: 4px solid hsl(var(--border));
+    border-left: 4px solid #dddddd;
     padding-left: 1em;
     margin-left: 0;
     font-style: italic;
+    color: #555555;
+}
+
+.dark .colorful-notes blockquote {
+    border-left: 4px solid hsl(var(--border));
     color: hsl(var(--muted-foreground));
 }

@@ -24,7 +24,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { FileText, Book, Users, DollarSign, Package, LoaderCircle, Send, Library, FolderKanban, ShieldCheck, KeyRound, Settings } from "lucide-react";
+import { FileText, Book, Users, DollarSign, Package, LoaderCircle, Send, Library, FolderKanban, ShieldCheck, KeyRound, Settings, Palette } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import type { Paper, User as AppUser, Combo } from "@/lib/types";
@@ -198,6 +198,35 @@ function AdminDashboard() {
               </CardContent>
             </Card>
           ))}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle>AI नोट्स स्टाइल कस्टमाइज़र</CardTitle><CardDescription>यहां से AI द्वारा जेनरेट किए गए नोट्स के रंग और स्टाइल को बदलें।</CardDescription></CardHeader>
+        <CardContent className="space-y-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="space-y-2">
+                    <Label htmlFor="h1-color">मुख्य हेडिंग (H1)</Label>
+                    <Input type="color" id="h1-color" defaultValue="#0D63C6" className="h-10 p-1" disabled/>
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="h2-color">सब-हेडिंग (H2)</Label>
+                    <Input type="color" id="h2-color" defaultValue="#2C9D44" className="h-10 p-1" disabled/>
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="text-color">मुख्य टेक्स्ट</Label>
+                    <Input type="color" id="text-color" defaultValue="#333333" className="h-10 p-1" disabled/>
+                </div>
+                 <div className="space-y-2">
+                    <Label htmlFor="highlight-color">हाइलाइट (Bold)</Label>
+                    <Input type="color" id="highlight-color" defaultValue="#0D63C6" className="h-10 p-1" disabled/>
+                </div>
+            </div>
+            <div className="text-center p-4 border rounded-lg bg-gray-100 dark:bg-gray-800">
+                <Palette className="mx-auto w-8 h-8 text-gray-500 mb-2"/>
+                <p className="font-semibold">यह सुविधा जल्द ही आ रही है</p>
+                <p className="text-sm text-muted-foreground">जल्द ही आप यहीं से नोट्स का लुक और फील बदल पाएंगे।</p>
+            </div>
         </CardContent>
       </Card>
       

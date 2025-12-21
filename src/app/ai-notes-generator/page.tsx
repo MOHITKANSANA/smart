@@ -29,6 +29,10 @@ const notesFormSchema = z.object({
   topic: z.string().min(3, { message: 'कृपया कम से कम 3 अक्षरों का टॉपिक डालें।' }),
   language: z.enum(['Hindi', 'English']),
   description: z.string().optional(),
+  pageCount: z.preprocess(
+    (a) => (a ? parseInt(z.string().parse(a), 10) : undefined),
+    z.number().min(1, 'पेज संख्या कम से कम 1 होनी चाहिए।').optional()
+  ),
 });
 
 export default function AINotesGeneratorPage() {
@@ -42,6 +46,7 @@ export default function AINotesGeneratorPage() {
       topic: '',
       language: 'Hindi',
       description: '',
+      pageCount: undefined,
     },
   });
 
@@ -74,7 +79,7 @@ export default function AINotesGeneratorPage() {
           <Button variant="ghost" size="icon" onClick={() => router.back()}>
             <ChevronLeft className="h-6 w-6" />
           </Button>
-          <h1 className="font-headline text-2xl font-bold gradient-text">AI Notes जेनरेटर</h1>
+          <h1 className="font-headline text-2xl font-bold gradient-text">AI Notes जेनरेटर (Gemini)</h1>
         </div>
 
         <Card className="max-w-2xl mx-auto shadow-lg">
@@ -82,7 +87,7 @@ export default function AINotesGeneratorPage() {
             <div className="flex items-center gap-3">
               <WandSparkles className="w-8 h-8 text-primary" />
               <div>
-                <CardTitle>अपने टॉपिक पर नोट्स बनाएं (Gemini)</CardTitle>
+                <CardTitle>अपने टॉपिक पर नोट्स बनाएं</CardTitle>
                 <CardDescription>बस अपना चैप्टर या टॉपिक डालें और AI को अपना जादू करने दें।</CardDescription>
               </div>
             </div>
@@ -124,6 +129,19 @@ export default function AINotesGeneratorPage() {
                         <FormMessage />
                         </FormItem>
                     )}
+                    />
+                     <FormField
+                        control={form.control}
+                        name="pageCount"
+                        render={({ field }) => (
+                            <FormItem>
+                            <FormLabel>पेज संख्या (वैकल्पिक)</FormLabel>
+                            <FormControl>
+                                <Input type="number" placeholder="जैसे: 5" {...field} onChange={e => field.onChange(e.target.value === '' ? undefined : e.target.value)} value={field.value ?? ''} />
+                            </FormControl>
+                            <FormMessage />
+                            </FormItem>
+                        )}
                     />
                 </div>
                 <FormField

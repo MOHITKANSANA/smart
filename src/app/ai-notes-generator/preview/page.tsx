@@ -35,21 +35,57 @@ export default function PreviewPage() {
     
     try {
         const content = contentRef.current;
+        
+        // A4 page dimensions in pixels at 96 DPI: 794px x 1123px
+        const a4Width = 794;
+        
+        // Temporarily set a fixed width for canvas rendering
+        const originalWidth = content.style.width;
+        content.style.width = `${a4Width}px`;
+
         const canvas = await html2canvas(content, {
-            scale: 2,
+            scale: 2, // Higher scale for better quality
             useCORS: true,
-            backgroundColor: window.getComputedStyle(document.body).backgroundColor,
+            windowWidth: a4Width,
         });
+
+        // Restore original width
+        content.style.width = originalWidth;
 
         const imgData = canvas.toDataURL('image/png');
+        const imgWidth = canvas.width;
+        const imgHeight = canvas.height;
+
+        // jsPDF A4 dimensions in points: 595.28 x 841.89
         const pdf = new jsPDF({
             orientation: 'p',
-            unit: 'px',
-            format: [canvas.width, canvas.height],
+            unit: 'pt',
+            format: 'a4',
         });
+        
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = pdf.internal.pageSize.getHeight();
+        
+        // Calculate the aspect ratio to fit the content on the PDF page
+        const ratio = imgWidth / pdfWidth;
+        const projectedHeight = imgHeight / ratio;
+        
+        let heightLeft = projectedHeight;
+        let position = 0;
 
-        pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
-        pdf.save('ai-generated-notes.pdf');
+        pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, projectedHeight);
+        heightLeft -= pdfHeight;
+
+        // Add new pages if content is longer than one page
+        while (heightLeft >= 0) {
+            position = heightLeft - projectedHeight;
+            pdf.addPage();
+            pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, projectedHeight);
+            heightLeft -= pdfHeight;
+        }
+
+        const safeTopicName = topic.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+        pdf.save(`${safeTopicName}_notes.pdf`);
 
     } catch (error) {
         console.error("Error generating PDF:", error);
@@ -92,7 +128,7 @@ export default function PreviewPage() {
             ) : (
               <>
                 <Download className="mr-2 h-4 w-4" />
-                PDF डाउनलोड करें
+                A4 PDF डाउनलोड करें
               </>
             )}
           </Button>
@@ -100,9 +136,9 @@ export default function PreviewPage() {
 
         <Card>
           <CardContent className="p-0">
-            <div ref={contentRef} className="p-6 bg-card text-card-foreground">
+            <div ref={contentRef} className="p-6 sm:p-8">
               <div
-                className="prose prose-sm sm:prose-base lg:prose-lg dark:prose-invert max-w-none colorful-notes"
+                className="prose prose-sm sm:prose-base lg:prose-lg max-w-none colorful-notes"
                 dangerouslySetInnerHTML={{ __html: notes }}
               />
             </div>
