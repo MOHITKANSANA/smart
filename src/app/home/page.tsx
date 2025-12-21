@@ -34,12 +34,13 @@ function PaymentStatusHandler() {
         const orderId = searchParams.get('order_id');
         const paymentCheck = searchParams.get('payment_check');
 
-        if (orderId && paymentCheck === 'true' && !isVerifying) {
+        if (orderId && paymentCheck === 'true' && user && !isVerifying) {
             setIsVerifying(true);
             toast({ title: 'आपका भुगतान सत्यापित किया जा रहा है...', description: 'कृपया प्रतीक्षा करें...' });
 
             const verifyPayment = async () => {
                 try {
+                    // Step 1: Check the payment status from your own server/API
                     const response = await fetch(`/api/get-payment-status?order_id=${orderId}`);
                     if (!response.ok) {
                         throw new Error('सर्वर से भुगतान की स्थिति प्राप्त करने में विफल।');
@@ -47,21 +48,30 @@ function PaymentStatusHandler() {
                     const data = await response.json();
                     
                     const paymentRef = doc(firestore, "payments", orderId);
-                    const userRef = user ? doc(firestore, "users", user.uid) : null;
+                    const paymentDoc = await getDoc(paymentRef);
+
+                    // If payment record doesn't exist or already processed, stop.
+                    if (!paymentDoc.exists() || paymentDoc.data()?.status === 'SUCCESS') {
+                        toast({ title: 'भुगतान पहले ही सत्यापित हो चुका है।' });
+                        router.replace('/home', { scroll: false });
+                        return;
+                    }
+
+                    const userRef = doc(firestore, "users", user.uid);
                     const batch = writeBatch(firestore);
 
-                    if (data.order_status === 'PAID') {
-                        toast({ title: 'भुगतान सफल!', description: 'आपको कंटेंट का एक्सेस मिल गया है।' });
+                    if (data.order_status === 'PAID' || data.order_status === 'SUCCESS') {
                         batch.update(paymentRef, { status: 'SUCCESS', updatedAt: new Date() });
-                        if (userRef && data.order_tags?.itemId) {
+                        if (data.order_tags?.itemId) {
                             batch.update(userRef, { purchasedItems: arrayUnion(data.order_tags.itemId) });
                         }
+                        await batch.commit();
+                        toast({ title: 'भुगतान सफल!', description: 'आपको कंटेंट का एक्सेस मिल गया है।' });
                     } else {
-                        toast({ variant: 'destructive', title: 'भुगतान विफल', description: 'आपका भुगतान सफल नहीं हुआ या रद्द कर दिया गया।' });
                         batch.update(paymentRef, { status: 'FAILED', updatedAt: new Date() });
+                        await batch.commit();
+                        toast({ variant: 'destructive', title: 'भुगतान विफल', description: data.order_status || 'आपका भुगतान सफल नहीं हुआ या रद्द कर दिया गया।' });
                     }
-                    
-                    await batch.commit();
 
                 } catch (error: any) {
                     console.error("Payment verification error:", error);
@@ -225,7 +235,7 @@ export default function HomePage() {
 
             {papers && papers.length > 0 && (
               <div className="space-y-4">
-                  <h2 className="text-xl font-headline font-bold gradient-text">Subjects</h2>
+                  <h2 className="text-xl font-headline font-bold gradient-text">विषय (Papers)</h2>
                   <Accordion type="single" collapsible className="w-full space-y-4">
                       {(papers || []).map((paper, index) => (
                           <PaperItem key={paper.id} paper={paper} index={index} />
@@ -237,14 +247,14 @@ export default function HomePage() {
             {recentCombos && recentCombos.length > 0 && (
               <div>
                    <div className="flex justify-between items-center mb-4">
-                      <h2 className="text-xl font-headline font-bold gradient-text">Important Notes & Tricks</h2>
+                      <h2 className="text-xl font-headline font-bold gradient-text">महत्वपूर्ण नोट्स और ट्रिक्स</h2>
                        <Button variant="link" asChild>
                          <Link href="/combos">
                            सभी देखें <ChevronRight className="ml-1 h-4 w-4" />
                          </Link>
                       </Button>
                   </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-3 gap-4">
                       {recentCombos.map((combo, index) => (
                           <ComboItem key={combo.id} combo={combo} index={index} />
                       ))}
@@ -272,3 +282,5 @@ export default function HomePage() {
     </AppLayout>
   );
 }
+
+    
