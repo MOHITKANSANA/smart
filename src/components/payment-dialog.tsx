@@ -73,7 +73,7 @@ export default function PaymentDialog({ isOpen, setIsOpen, item, itemType }: Pay
             
             const responseData = await response.json();
 
-            if (!response.ok) {
+            if (!response.ok || responseData.error) {
                 throw new Error(responseData.error || 'Server से order बनाने में विफल।');
             }
 
