@@ -13,7 +13,8 @@ export async function POST(req: NextRequest) {
 
     const orderId = `order_${randomUUID()}`;
     
-    const response = await fetch("https://sandbox.cashfree.com/pg/orders", {
+    // Using Cashfree's PRODUCTION endpoint
+    const response = await fetch("https://api.cashfree.com/pg/orders", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -32,8 +33,6 @@ export async function POST(req: NextRequest) {
             customer_name: userName,
           },
           order_meta: {
-            // This return_url is for Cashfree to redirect back to after payment.
-            // It MUST be a publicly accessible HTTPS url.
             return_url: `https://studiopublicproxy-4x6y3j5qxq-uc.a.run.app/api/payment-status?order_id={order_id}`,
           },
           order_note: `Payment for ${item.name}`,
@@ -47,13 +46,14 @@ export async function POST(req: NextRequest) {
     }
     
     // Store the pending payment in Firestore before sending the response to the client
-    // This is important for reconciliation.
     const { getFirestore: getAdminFirestore, Timestamp } = await import('firebase-admin/firestore');
     const { initializeApp, getApps } = await import('firebase-admin/app');
 
-    if (!getApps().length) {
+    // Check if the app is already initialized
+    if (getApps().length === 0) {
         initializeApp();
     }
+    
     const adminFirestore = getAdminFirestore();
     const paymentRef = adminFirestore.collection('payments').doc(orderId);
     await paymentRef.set({
