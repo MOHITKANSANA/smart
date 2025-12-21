@@ -50,10 +50,11 @@ const imageGenerator = ai.defineTool(
         outputSchema: z.string(),
     },
     async (prompt) => {
-        console.log(`Generating image for prompt: ${prompt}`);
+        const safePrompt = `A safe, educational, and artistic illustration of: ${prompt}`;
+        console.log(`Generating image for safe prompt: ${safePrompt}`);
         const { media } = await ai.generate({
             model: 'openai/dall-e-2',
-            prompt: prompt,
+            prompt: safePrompt,
         });
         console.log('Image generated successfully.');
         return media.url;
