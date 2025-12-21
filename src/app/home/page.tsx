@@ -51,11 +51,29 @@ function PaymentStatusHandler() {
                     const paymentDoc = await getDoc(paymentRef);
 
                     // If payment record doesn't exist or already processed, stop.
-                    if (!paymentDoc.exists() || paymentDoc.data()?.status === 'SUCCESS') {
+                    if (paymentDoc.exists() && paymentDoc.data()?.status === 'SUCCESS') {
                         toast({ title: 'भुगतान पहले ही सत्यापित हो चुका है।' });
                         router.replace('/home', { scroll: false });
                         return;
                     }
+                    
+                    if (!paymentDoc.exists()) {
+                         // This case is unlikely if create-order is working, but it's a good fallback.
+                         console.log(`Payment record for order ${orderId} not found client-side. Creating one.`);
+                         const { userId, itemId, itemType } = data.order_tags || {};
+                         await writeBatch(firestore)
+                            .set(paymentRef, {
+                                id: orderId,
+                                userId: userId,
+                                itemId: itemId,
+                                itemType: itemType,
+                                amount: data.order_amount,
+                                status: 'PENDING',
+                                createdAt: new Date(),
+                             })
+                            .commit();
+                    }
+
 
                     const userRef = doc(firestore, "users", user.uid);
                     const batch = writeBatch(firestore);
@@ -194,11 +212,11 @@ function ComboItem({ combo, index }: { combo: Combo; index: number }) {
     return (
         <Link href={`/combos/${combo.id}`} className="block group">
             <Card className={cn(
-                "text-white border-white/10 shadow-lg hover:shadow-2xl transition-all duration-300 transform group-hover:scale-105 aspect-video flex flex-col justify-center items-center p-2 overflow-hidden relative text-center",
+                "text-white border-white/10 shadow-lg hover:shadow-2xl transition-all duration-300 transform group-hover:scale-105 aspect-square flex flex-col justify-center items-center p-2 overflow-hidden relative text-center",
                 colorClass
             )}>
                  <div className="z-10 p-2 flex items-center justify-center h-full">
-                    <CardTitle className="text-sm font-bold line-clamp-3 drop-shadow-md">{combo.name}</CardTitle>
+                    <CardTitle className="text-sm font-bold drop-shadow-md">{combo.name}</CardTitle>
                  </div>
             </Card>
         </Link>
@@ -282,5 +300,3 @@ export default function HomePage() {
     </AppLayout>
   );
 }
-
-    

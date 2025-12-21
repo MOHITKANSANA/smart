@@ -37,7 +37,7 @@ function ComboItem({ combo, index }: { combo: Combo; index: number }) {
                 colorClass
             )}>
                  <div className="z-10 p-2 flex items-center justify-center h-full">
-                    <CardTitle className="text-sm font-bold line-clamp-3 drop-shadow-md">{combo.name}</CardTitle>
+                    <CardTitle className="text-sm font-bold drop-shadow-md">{combo.name}</CardTitle>
                  </div>
             </Card>
         </Link>
@@ -97,5 +97,3 @@ export default function AllCombosPage() {
     </AppLayout>
   );
 }
-
-    
