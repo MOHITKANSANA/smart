@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Send, LoaderCircle, User, Shield, ChevronLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ChatMessage, User as AppUser } from '@/lib/types';
+import { useToast } from '@/hooks/use-toast';
 
 function ChatBubble({ message }: { message: ChatMessage }) {
     const { user } = useUser();
@@ -45,6 +46,7 @@ export default function LiveChatPage() {
     const [newMessage, setNewMessage] = useState('');
     const [isSending, setIsSending] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const { toast } = useToast();
 
     const userDocRef = useMemoFirebase(() => user ? doc(firestore, 'users', user.uid) : null, [firestore, user]);
     const { data: appUser } = useDoc<AppUser>(userDocRef);
@@ -61,7 +63,14 @@ export default function LiveChatPage() {
 
     const handleSendMessage = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!newMessage.trim() || !user || !appUser) return;
+        if (!newMessage.trim() || !user || !appUser) {
+            toast({
+                variant: 'destructive',
+                title: 'त्रुटि',
+                description: 'संदेश भेजने के लिए आपका लॉगिन होना और प्रोफाइल डेटा लोड होना आवश्यक है।'
+            });
+            return;
+        }
         
         setIsSending(true);
 
@@ -81,14 +90,22 @@ export default function LiveChatPage() {
         };
 
         try {
-            // Add message and update session in parallel
+            // Use Promise.all to run both Firestore operations concurrently
             await Promise.all([
                 addDoc(collection(firestore, `live-chats/${user.uid}/messages`), messageData),
                 setDoc(doc(firestore, `chat-sessions/${user.uid}`), sessionData, { merge: true })
             ]);
+            
+            // Clear the input field only after successful submission
             setNewMessage('');
-        } catch (error) {
+
+        } catch (error: any) {
             console.error("Error sending message:", error);
+            toast({
+                variant: 'destructive',
+                title: 'संदेश भेजने में विफल',
+                description: error.message || 'Firestore में डेटा सहेजते समय कोई समस्या हुई।'
+            });
         } finally {
             setIsSending(false);
         }
