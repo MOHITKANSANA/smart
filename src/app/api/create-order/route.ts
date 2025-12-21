@@ -1,13 +1,12 @@
 'use server';
 
 import { NextRequest, NextResponse } from 'next/server';
-import http from 'http';
 
 // This is the server-side API route that creates a payment order with Cashfree.
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { userId, userEmail, userPhone, userName, item, itemType } = body;
+    const { userId, userEmail, userPhone, userName, item, itemType, returnUrl } = body;
 
     // 1. Validate essential item information from our client
     if (!item || typeof item.price !== 'number' || !item.name) {
@@ -35,8 +34,7 @@ export async function POST(req: NextRequest) {
         customer_name: userName || 'Test User',
       },
        order_meta: {
-        // We handle the return URL on the client-side after payment for better UX.
-        // No return_url needed here for this flow.
+        return_url: returnUrl,
       },
     };
 
@@ -50,10 +48,6 @@ export async function POST(req: NextRequest) {
             'x-api-version': '2023-08-01',
         },
         body: JSON.stringify(requestBody),
-        // @ts-ignore - This is a valid option for Node.js fetch to disable keep-alive
-        agent: new http.Agent({ keepAlive: false }),
-        // @ts-ignore - This is necessary for undici (Next.js's fetch implementation)
-        duplex: 'half',
     });
 
     const responseData = await response.json();
@@ -65,9 +59,9 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: errorMessage }, { status: response.status });
     }
     
-    // 6. Send the successful session ID back to the client
+    // 6. Send the successful payment URL back to the client
     return NextResponse.json({
-      payment_session_id: responseData.payment_session_id,
+      payment_url: responseData.payment_url,
     });
 
   } catch (error: any) {

@@ -24,12 +24,6 @@ interface PaymentDialogProps {
   itemType: 'combo' | 'pdf' | 'test';
 }
 
-declare global {
-  interface Window {
-    Cashfree: any;
-  }
-}
-
 export default function PaymentDialog({ isOpen, setIsOpen, item, itemType }: PaymentDialogProps) {
     const { user } = useUser();
     const firestore = useFirestore();
@@ -42,66 +36,41 @@ export default function PaymentDialog({ isOpen, setIsOpen, item, itemType }: Pay
     const handlePayment = async () => {
         setIsProcessing(true);
 
-        // Crucial Check: Ensure Cashfree SDK is loaded.
-        if (typeof window === "undefined" || !window.Cashfree) {
-            toast({
-                variant: 'destructive',
-                title: 'भुगतान त्रुटि',
-                description: "पेमेंट गेटवे लोड नहीं हो सका। कृपया पृष्ठ को रीफ़्रेश करें और पुनः प्रयास करें।",
-            });
-            setIsProcessing(false);
-            return;
-        }
-
         try {
             const res = await fetch("/api/create-order", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                  userId: user?.uid,
-                  userName: appUser?.fullName || user?.email || 'Test User',
-                  userEmail: user?.email || 'default-email@example.com',
-                  userPhone: appUser?.mobileNumber || '9999999999',
-                  item: { id: item.id, name: item.name, price: item.price || 0 },
-                  itemType: itemType,
-              }),
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    userId: user?.uid,
+                    userName: appUser?.fullName || user?.email || 'Test User',
+                    userEmail: user?.email || 'default-email@example.com',
+                    userPhone: appUser?.mobileNumber || '9999999999',
+                    item: { id: item.id, name: item.name, price: item.price || 0 },
+                    itemType: itemType,
+                    returnUrl: `${window.location.origin}/home?payment_status=success&order_id={order_id}`
+                }),
             });
-
-            if (!res.ok) {
-                const errorData = await res.json().catch(() => ({ error: 'An unknown server error occurred.' }));
-                throw new Error(errorData.error || `Server responded with status: ${res.status}`);
-            }
 
             const data = await res.json();
-            
-            if (data.error) {
-                throw new Error(data.error);
+
+            if (!res.ok) {
+                throw new Error(data.error || 'सर्वर से ऑर्डर बनाने में विफल।');
             }
 
-            if (!data.payment_session_id) {
-                throw new Error("Server did not return a payment_session_id.");
+            if (data.payment_url) {
+                window.location.href = data.payment_url;
+            } else {
+                throw new Error('पेमेंट लिंक प्राप्त नहीं हुआ।');
             }
-    
-            const cashfree = new window.Cashfree({
-                mode: "PROD", // PROD for production
-            });
-    
-            cashfree.checkout({
-                paymentSessionId: data.payment_session_id,
-                redirectTarget: "_self",
-            });
-    
         } catch (error: any) {
-            console.error("Payment Failed:", error.message);
+            console.error("Payment Failed:", error);
             toast({
                 variant: 'destructive',
                 title: 'भुगतान में समस्या आई',
-                description: error.message,
+                description: error.message || 'एक अज्ञात त्रुटि हुई।',
             });
             setIsProcessing(false);
         }
-        // No finally block needed if we only reset on error.
-        // On success, the page redirects, so state doesn't matter.
     };
 
 
