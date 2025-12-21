@@ -269,9 +269,7 @@ function TopBar() {
   
   return (
     <header className="sticky top-0 z-10 flex h-16 items-center gap-4 border-b bg-background/80 backdrop-blur-sm px-4 md:px-6" style={{'--top-bar-height': '4rem'} as React.CSSProperties}>
-      <SidebarTrigger className={cn(!isMobile && "hidden")}>
-        <Menu />
-      </SidebarTrigger>
+      <SidebarTrigger className={cn(!isMobile && "hidden")} />
       <div className="flex-1 flex items-center gap-2">
          <h1 className="font-headline text-xl font-bold gradient-text">MPPSC & Civil Notes</h1>
       </div>
