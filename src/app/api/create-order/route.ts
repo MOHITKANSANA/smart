@@ -4,28 +4,31 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Cashfree } from 'cashfree-pg';
 
-Cashfree.XClientId = process.env.CASHFREE_APP_ID!;
-Cashfree.XClientSecret = process.env.CASHFREE_SECRET_KEY!;
-Cashfree.XEnvironment = Cashfree.Environment.PRODUCTION;
-Cashfree.XApiVersion = "2023-08-01";
-
 export async function POST(req: NextRequest) {
   try {
-    const { userId, userEmail, userPhone, userName, item, itemType } = await req.json();
+    const body = await req.json();
+    const { userId, userEmail, userPhone, userName, item, itemType } = body;
 
-    if (!userId || !item || !item.price) {
+    if (itemType !== 'test' && (!userId || !item || !item.price)) {
         return NextResponse.json({ error: 'User or item information is missing' }, { status: 400 });
     }
+
+    if(itemType === 'test' && !item.price) {
+         return NextResponse.json({ error: 'Test item price is missing' }, { status: 400 });
+    }
+    
+    // Use Production URL
+    const cashfreeURL = "https://api.cashfree.com/pg/orders";
 
     const orderId = `order_${Date.now()}`;
     const returnUrl = `https://studiopublicproxy-4x6y3j5qxq-uc.a.run.app/api/payment-status?order_id={order_id}`;
 
-    const orderRequest = {
+    const requestBody = {
         order_id: orderId,
-        order_amount: item.price,
+        order_amount: Number(item.price),
         order_currency: "INR",
         customer_details: {
-            customer_id: userId,
+            customer_id: userId || "user_test_001",
             customer_email: userEmail || 'default-email@example.com',
             customer_phone: userPhone || "9999999999",
             customer_name: userName || 'User',
@@ -36,14 +39,28 @@ export async function POST(req: NextRequest) {
         order_note: `Payment for ${item.name}`,
     };
 
-    const response = await Cashfree.PGCreateOrder(orderRequest);
-    const orderData = response.data;
+    const response = await fetch(cashfreeURL, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "x-client-id": process.env.CASHFREE_APP_ID!,
+            "x-client-secret": process.env.CASHFREE_SECRET_KEY!,
+            "x-api-version": "2023-08-01",
+        },
+        body: JSON.stringify(requestBody),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+        console.error("Cashfree API Error:", data);
+        return NextResponse.json({ error: data?.message || "Failed to create order with Cashfree." }, { status: response.status });
+    }
     
     if (itemType !== 'test') {
         const { getFirestore: getAdminFirestore, Timestamp } = await import('firebase-admin/firestore');
-        const { initializeApp, getApps, cert } = await import('firebase-admin/app');
+        const { initializeApp, getApps } = await import('firebase-admin/app');
 
-        // Check if the default app is already initialized
         if (getApps().length === 0) {
             initializeApp();
         }
@@ -62,7 +79,7 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({
-        payment_session_id: orderData.payment_session_id,
+        payment_session_id: data.payment_session_id,
     });
 
   } catch (error: any) {
