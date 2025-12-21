@@ -1,3 +1,4 @@
+
 'use client';
 
 import { AppLayout } from '@/components/app-layout';
@@ -50,7 +51,7 @@ export default function PrivacyPolicyPage() {
 
               <h2>Payment Processing</h2>
                 <p>
-                    All payments made for our services are processed through <strong>Cashfree Payments</strong>, a third-party payment gateway. We do not collect, store, or have access to any of your sensitive financial information, such as credit card numbers, bank account details, or UPI IDs.
+                    All payments made for our services are processed through <strong>Cashfree</strong>, a third-party payment gateway. We do not collect, store, or have access to any of your sensitive financial information, such as credit card numbers, bank account details, or UPI IDs.
                 </p>
                 <p>
                     When you make a payment, you are redirected to Cashfree's secure platform. Any information you provide during the payment process is governed by Cashfree's own privacy policy and security measures. We strongly encourage you to review Cashfree's policies.

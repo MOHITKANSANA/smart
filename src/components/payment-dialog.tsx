@@ -77,7 +77,7 @@ export default function PaymentDialog({ isOpen, setIsOpen, item, itemType }: Pay
             }
 
             const cashfree = new window.Cashfree({
-                mode: "production", // Or "sandbox"
+                mode: "production",
             });
             
             cashfree.checkout({
