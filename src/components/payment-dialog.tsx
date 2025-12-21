@@ -44,6 +44,12 @@ export default function PaymentDialog({ isOpen, setIsOpen, item, itemType }: Pay
     const handlePayment = async () => {
         setIsProcessing(true);
 
+        if (typeof window === "undefined" || !window.cashfree) {
+            toast({ variant: 'destructive', title: 'त्रुटि', description: 'कैशफ्री पेमेंट SDK लोड नहीं हुई। कृपया पेज को रीफ्रेश करें।' });
+            setIsProcessing(false);
+            return;
+        }
+
         if (!user) {
             toast({ variant: 'destructive', title: 'त्रुटि', description: 'भुगतान करने से पहले कृपया लॉगिन करें।' });
             setIsProcessing(false);
@@ -57,22 +63,22 @@ export default function PaymentDialog({ isOpen, setIsOpen, item, itemType }: Pay
                 body: JSON.stringify({
                     userId: user.uid,
                     userName: appUser?.fullName || user.displayName || 'Guest User',
-                    userEmail: appUser?.email || user.email,
-                    userPhone: appUser?.mobileNumber,
-                    item: item,
+                    userEmail: user.email, // Always use the primary email from auth
+                    userPhone: appUser?.mobileNumber || '9999999999', // Provide a fallback
+                    item: { ...item, price: item.price || 0 },
                 })
             });
 
             const responseData = await response.json();
 
             if (!response.ok) {
-                throw new Error(responseData.error || 'Failed to create order.');
+                throw new Error(responseData.error || 'Failed to create order from server.');
             }
 
             const { payment_session_id, order_id } = responseData;
 
             if (!payment_session_id || !order_id) {
-                throw new Error('Invalid payment session data from server.');
+                throw new Error('सर्वर से अमान्य भुगतान सत्र डेटा।');
             }
 
             // Create pending payment record in Firestore
@@ -118,8 +124,8 @@ export default function PaymentDialog({ isOpen, setIsOpen, item, itemType }: Pay
                 </div>
                 
                 <DialogFooter className="flex flex-col gap-2">
-                    <Button onClick={handlePayment} disabled={isProcessing} className="w-full h-12 text-lg">
-                        {isProcessing ? <LoaderCircle className="animate-spin" /> : `₹${item.price} का भुगतान करें`}
+                    <Button onClick={handlePayment} disabled={isProcessing || isUserLoading} className="w-full h-12 text-lg">
+                        {(isProcessing || isUserLoading) ? <LoaderCircle className="animate-spin" /> : `₹${item.price} का भुगतान करें`}
                     </Button>
                     <DialogClose asChild>
                         <Button variant="ghost" className="w-full">रद्द करें</Button>
