@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
@@ -25,17 +26,17 @@ import {
   useMemoFirebase,
   useDoc,
 } from "@/firebase";
-import { addDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
+import { addDocumentNonBlocking, updateDocumentNonBlocking, setDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import { AppLayout } from "@/components/app-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { FileText, Book, Users, DollarSign, Package, LoaderCircle, Send, Library, FolderKanban, ShieldCheck, KeyRound, Settings, Palette, History, RefreshCw } from "lucide-react";
+import { FileText, Book, Users, DollarSign, Package, LoaderCircle, Send, Library, FolderKanban, ShieldCheck, KeyRound, Settings, Palette, History, RefreshCw, BookMarked } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import type { Paper, User as AppUser, Combo, Payment, NoteStyleSettings } from "@/lib/types";
+import type { Paper, User as AppUser, Combo, Payment, NoteStyleSettings, Tutorials } from "@/lib/types";
 import { useRouter } from "next/navigation";
 import { Label } from "@/components/ui/label";
 
@@ -54,6 +55,10 @@ const colorCustomizerSchema = z.object({
     h2Color: z.string(),
     textColor: z.string(),
     highlightColor: z.string(),
+});
+
+const tutorialsSchema = z.object({
+    content: z.string().min(1, "ट्यूटोरियल कंटेंट आवश्यक है।"),
 });
 
 
@@ -202,6 +207,65 @@ function NotesColorCustomizer() {
     )
 }
 
+function TutorialsManager() {
+    const firestore = useFirestore();
+    const { toast } = useToast();
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    
+    const tutorialRef = useMemoFirebase(() => doc(firestore, 'settings', 'tutorials'), [firestore]);
+    const { data: initialData, isLoading } = useDoc<Tutorials>(tutorialRef);
+
+    const form = useForm<z.infer<typeof tutorialsSchema>>({
+        resolver: zodResolver(tutorialsSchema),
+        defaultValues: { content: '' },
+    });
+
+    useEffect(() => {
+        if (initialData) {
+            form.reset({ content: initialData.content });
+        }
+    }, [initialData, form]);
+
+    async function onSubmit(values: z.infer<typeof tutorialsSchema>) {
+        setIsSubmitting(true);
+        try {
+            await setDocumentNonBlocking(tutorialRef, {
+                content: values.content,
+                updatedAt: serverTimestamp(),
+            });
+            toast({ title: "सफलता!", description: "ट्यूटोरियल सफलतापूर्वक सेव हो गया है।" });
+        } catch (error: any) {
+             toast({ variant: "destructive", title: "त्रुटि!", description: "ट्यूटोरियल सेव करने में विफल।" });
+        } finally {
+            setIsSubmitting(false);
+        }
+    }
+
+    if (isLoading) {
+        return <div className="flex justify-center p-4"><LoaderCircle className="animate-spin"/></div>
+    }
+
+    return (
+         <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <FormField control={form.control} name="content" render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>ट्यूटोरियल कंटेंट (Markdown सपोर्टेड)</FormLabel>
+                        <FormControl>
+                            <Textarea placeholder="अपना ट्यूटोरियल कंटेंट यहाँ लिखें..." {...field} rows={10} />
+                        </FormControl>
+                        <FormMessage />
+                    </FormItem>
+                )} />
+                <Button type="submit" disabled={isSubmitting}>
+                    {isSubmitting ? <LoaderCircle className="animate-spin" /> : "ट्यूटोरियल सेव करें"}
+                </Button>
+            </form>
+        </Form>
+    )
+}
+
+
 function AdminDashboard() {
   const { toast } = useToast();
   const firestore = useFirestore();
@@ -319,7 +383,7 @@ function AdminDashboard() {
         </CardContent>
       </Card>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card id="send-notification" className="shadow-lg"><CardHeader><CardTitle className="flex items-center gap-2"><Send /> मैन्युअल नोटिफिकेशन भेजें</CardTitle><CardDescription>सभी यूज़र्स को एक कस्टम नोटिफिकेशन भेजें।</CardDescription></CardHeader><CardContent><Form {...notificationForm}><form onSubmit={notificationForm.handleSubmit(onSendNotification)} className="space-y-4"><FormField control={notificationForm.control} name="title" render={({ field }) => (<FormItem><FormLabel>नोटिफिकेशन का शीर्षक</FormLabel><FormControl><Input placeholder="नया स्टडी मटेरियल उपलब्ध है!" {...field} /></FormControl><FormMessage /></FormItem>)} /><FormField control={notificationForm.control} name="message" render={({ field }) => (<FormItem><FormLabel>नोटिफिकेशन का संदेश</FormLabel><FormControl><Textarea placeholder="आज हमने इतिहास के नए नोट्स अपलोड किए हैं, अभी देखें।" {...field} /></FormControl><FormMessage /></FormItem>)} /><FormField control={notificationForm.control} name="imageUrl" render={({ field }) => (<FormItem><FormLabel>इमेज URL (वैकल्पिक)</FormLabel><FormControl><Input placeholder="https://example.com/image.png" {...field} /></FormControl><FormMessage /></FormItem>)} />
                 <Button type="submit" className="w-full" disabled={isSubmitting}>{isSubmitting ? <LoaderCircle className="animate-spin" /> : "अभी भेजें"}</Button></form></Form></CardContent></Card>
         
@@ -336,6 +400,13 @@ function AdminDashboard() {
             </CardContent>
         </Card>
       </div>
+
+       <Card>
+        <CardHeader><CardTitle className="flex items-center gap-2"><BookMarked /> इम्पोर्टेन्ट ट्यूटोरियल मैनेजर</CardTitle><CardDescription>यहां से ऐप के लिए ट्यूटोरियल या महत्वपूर्ण जानकारी अपडेट करें।</CardDescription></CardHeader>
+        <CardContent>
+            <TutorialsManager />
+        </CardContent>
+      </Card>
 
        <Card>
         <CardHeader><CardTitle>AI नोट्स स्टाइल कस्टमाइज़र</CardTitle><CardDescription>यहां से AI द्वारा जेनरेट किए गए नोट्स के रंग और स्टाइल को बदलें।</CardDescription></CardHeader>

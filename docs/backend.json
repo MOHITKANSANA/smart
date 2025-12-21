@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "User": {
@@ -303,6 +304,45 @@
             "updatedAt": { "type": "string", "format": "date-time", "description": "Timestamp of the last status update." }
         },
         "required": ["id", "userId", "itemId", "itemType", "amount", "status", "createdAt"]
+    },
+    "Tutorials": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "title": "Tutorials",
+        "type": "object",
+        "description": "Stores the application's tutorial content.",
+        "properties": {
+            "content": { "type": "string", "description": "The Markdown content of the tutorials." },
+            "updatedAt": { "type": "string", "format": "date-time", "description": "Timestamp of the last update." }
+        },
+        "required": ["content", "updatedAt"]
+    },
+    "ChatMessage": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "title": "Chat Message",
+        "type": "object",
+        "description": "Represents a single message in a live chat.",
+        "properties": {
+            "id": { "type": "string", "description": "Unique identifier for the message." },
+            "text": { "type": "string", "description": "The content of the message." },
+            "senderId": { "type": "string", "description": "The ID of the user who sent the message." },
+            "createdAt": { "type": "string", "format": "date-time", "description": "Timestamp of when the message was sent." }
+        },
+        "required": ["id", "text", "senderId", "createdAt"]
+    },
+    "ChatSession": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "title": "Chat Session",
+        "type": "object",
+        "description": "Represents a live chat session for an admin to view.",
+        "properties": {
+            "id": { "type": "string", "description": "Unique identifier for the session (corresponds to userId)." },
+            "userName": { "type": "string", "description": "The name of the user in the chat." },
+            "userEmail": { "type": "string", "description": "The email of the user." },
+            "lastMessage": { "type": "string", "description": "The text of the last message sent." },
+            "lastMessageAt": { "type": "string", "format": "date-time", "description": "Timestamp of the last message." },
+            "isReadByAdmin": { "type": "boolean", "description": "Whether the admin has read the latest message." }
+        },
+        "required": ["id", "userName", "userEmail", "lastMessage", "lastMessageAt"]
     }
   },
   "auth": {
@@ -402,9 +442,31 @@
             },
             "description": "Stores payment transaction records."
         }
+      },
+      {
+        "path": "/settings/tutorials",
+        "definition": {
+          "entityName": "Tutorials",
+          "schema": { "$ref": "#/backend/entities/Tutorials" },
+          "description": "Stores application-wide tutorial content."
+        }
+      },
+      {
+        "path": "/live-chats/{userId}/messages/{messageId}",
+        "definition": {
+          "entityName": "ChatMessage",
+          "schema": { "$ref": "#/backend/entities/ChatMessage" },
+          "description": "Stores all messages for a specific user's chat."
+        }
+      },
+      {
+        "path": "/chat-sessions/{userId}",
+        "definition": {
+          "entityName": "ChatSession",
+          "schema": { "$ref": "#/backend/entities/ChatSession" },
+          "description": "Maintains a list of active chat sessions for admin view."
+        }
       }
     ]
   }
 }
-
-    

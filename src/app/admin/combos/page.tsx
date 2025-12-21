@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
@@ -212,8 +213,8 @@ function ManageComboPdfsDialog({ combo, isOpen, onOpenChange }: { combo: Combo, 
                     {isLoading && <div className="flex justify-center"><LoaderCircle className="animate-spin" /></div>}
                     {!isLoading && currentCombo?.pdfDetails?.map((pdf: any) => (
                         <Card key={pdf.id} className="flex items-center justify-between p-3">
-                            <p className="font-semibold text-sm">{pdf.name}</p>
-                            <Button size="sm" variant="destructive" onClick={() => handleRemovePdf(pdf)}>
+                            <p className="font-semibold text-sm break-words flex-1 min-w-0">{pdf.name}</p>
+                            <Button size="sm" variant="destructive" onClick={() => handleRemovePdf(pdf)} className="flex-shrink-0 ml-4">
                                 <Trash2 className="h-4 w-4" />
                             </Button>
                         </Card>
@@ -340,14 +341,14 @@ export default function ManageCombosPage() {
               combos?.map((c, index) => (
                 <Card key={c.id} className="flex items-center justify-between p-4 relative overflow-hidden">
                     <div className={cn("absolute inset-0 opacity-20 bg-gradient-to-br", comboGradients[index % comboGradients.length])} />
-                    <div className="flex items-center gap-4 z-10">
+                    <div className="flex items-center gap-4 z-10 flex-1 min-w-0">
                         {c.imageUrl && <Image src={c.imageUrl} alt={c.name} width={60} height={60} className="rounded-md object-cover h-16 w-16" />}
-                        <div>
-                            <p className="font-semibold text-lg">{c.name}</p>
+                        <div className="flex-1 min-w-0">
+                            <p className="font-semibold text-lg break-words">{c.name}</p>
                             <p className="text-sm text-muted-foreground">{c.pdfDetails?.length || 0} PDFs शामिल हैं</p>
                         </div>
                     </div>
-                  <div className="flex items-center gap-2 z-10">
+                  <div className="flex items-center gap-2 z-10 flex-shrink-0 ml-4">
                     <Button size="sm" variant="outline" onClick={() => handleManagePdfs(c)}><FilePlus2 className="h-4 w-4"/></Button>
                     <Button size="sm" variant="outline" onClick={() => handleEdit(c)}><Edit className="h-4 w-4"/></Button>
                     <AlertDialog>

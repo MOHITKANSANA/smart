@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect } from "react";
@@ -216,11 +217,11 @@ export default function ManageTabsPage() {
               {isLoading ? <div className="flex justify-center"><LoaderCircle className="animate-spin"/></div> : 
               allTabs.map(t => (
                 <Card key={t.id} className="flex items-center justify-between p-3">
-                  <div>
-                    <p className="font-semibold">{t.name}</p>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold break-words">{t.name}</p>
                     <p className="text-sm text-muted-foreground">विषय: {getPaperName(t.paperId)}</p>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-shrink-0 ml-4">
                     <Button size="sm" variant="outline" onClick={() => handleEdit(t)}><Edit className="h-4 w-4"/></Button>
                     <AlertDialog>
                       <AlertDialogTrigger asChild>

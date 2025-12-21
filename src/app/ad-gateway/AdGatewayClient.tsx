@@ -1,7 +1,8 @@
+
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { PlayCircle, Shield, Hourglass, LoaderCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -9,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 const AD_COUNTDOWN_SECONDS = 5;
 
 const AdGatewayPageContent = () => {
+    const router = useRouter();
     const searchParams = useSearchParams();
     const pdfUrl = searchParams.get('url');
 
@@ -36,8 +38,8 @@ const AdGatewayPageContent = () => {
 
     const handleProceedToPdf = () => {
         if (pdfUrl) {
-            window.open(pdfUrl, '_blank', 'noopener,noreferrer');
-            window.history.back();
+            // Redirect to the in-app PDF viewer page
+            router.push(`/view-pdf?url=${encodeURIComponent(pdfUrl)}`);
         }
     };
     
@@ -92,8 +94,9 @@ const AdGatewayPageContent = () => {
 }
 
 export default function AdGatewayClient() {
+    // Use Suspense to handle the initial rendering before searchParams are available
     return (
-        <React.Suspense fallback={<div>Loading...</div>}>
+        <React.Suspense fallback={<div className="flex h-screen items-center justify-center">Loading...</div>}>
             <AdGatewayPageContent />
         </React.Suspense>
     );

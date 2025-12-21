@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import * as React from "react";
@@ -20,10 +21,12 @@ import {
   FileText,
   ShieldCheck,
   CircleDollarSign,
-  Bell,
+  Menu,
+  MessageCircle,
+  BookMarked
 } from "lucide-react";
-import { useUser, useAuth, useDoc, useFirestore, useMemoFirebase, useCollection } from "@/firebase";
-import { collection, doc, query, orderBy, limit, serverTimestamp, updateDoc } from 'firebase/firestore';
+import { useUser, useAuth, useDoc, useFirestore, useMemoFirebase } from "@/firebase";
+import { doc } from 'firebase/firestore';
 
 import {
   SidebarProvider,
@@ -51,16 +54,17 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
 import { cn } from "@/lib/utils";
-import type { User as AppUser, Notification as AppNotification } from '@/lib/types';
+import type { User as AppUser } from '@/lib/types';
 
 
 const menuItems = [
   { icon: Home, label: "होम", href: "/home" },
   { icon: BookCopy, label: "All Combos", href: "/combos" },
+  { icon: MessageCircle, label: "लाइव चैट", href: "/live-chat"},
+  { icon: BookMarked, label: "इम्पोर्टेन्ट ट्यूटोरियल", href: "/tutorials" },
 ];
 
 const bottomMenuItems = [
@@ -72,7 +76,8 @@ const bottomMenuItems = [
 ]
 
 const adminItems = [
-  { icon: Shield, label: "एडमिन पैनल", href: "/admin" },
+  { icon: Shield, label: "एडमिन डैशबोर्ड", href: "/admin" },
+  { icon: MessageCircle, label: "लाइव चैट", href: "/admin/live-chat" },
 ];
 
 // Helper function to generate a color from a string (e.g., user ID)
@@ -191,7 +196,7 @@ function AppSidebar() {
                   <Link href={item.href} className="w-full" onClick={handleMenuItemClick}>
                     <SidebarMenuButton
                       className="text-sidebar-foreground hover:bg-white/10 hover:text-white data-[active=true]:bg-white/20 data-[active=true]:text-white"
-                      isActive={pathname === item.href || pathname.startsWith(item.href)}
+                      isActive={pathname.startsWith(item.href)}
                     >
                       <item.icon className="w-5 h-5" />
                       <span>{item.label}</span>
@@ -236,65 +241,6 @@ function AppSidebar() {
   );
 }
 
-function NotificationPanel() {
-    const firestore = useFirestore();
-    const { user } = useUser();
-    const notificationsQuery = useMemoFirebase(() =>
-        query(collection(firestore, "notifications"), orderBy("createdAt", "desc"), limit(10)),
-        [firestore]
-    );
-    const { data: notifications, isLoading } = useCollection<AppNotification>(notificationsQuery);
-
-    const markAsRead = async (notificationId: string) => {
-        if (!user) return;
-        const notificationRef = doc(firestore, "notifications", notificationId);
-        const notification = notifications?.find(n => n.id === notificationId);
-        if (notification && !notification.readBy?.includes(user.uid)) {
-            await updateDoc(notificationRef, {
-                readBy: [...(notification.readBy || []), user.uid]
-            });
-        }
-    };
-    
-    const unreadCount = React.useMemo(() => {
-        if (!notifications || !user) return 0;
-        return notifications.filter(n => !n.readBy?.includes(user.uid)).length;
-    }, [notifications, user]);
-
-    return (
-        <Popover>
-            <PopoverTrigger asChild>
-                <Button variant="ghost" size="icon" className="relative">
-                    <Bell className="h-6 w-6" />
-                    {unreadCount > 0 && (
-                        <span className="absolute top-0 right-0 h-4 w-4 rounded-full bg-red-500 text-white text-xs flex items-center justify-center">
-                            {unreadCount}
-                        </span>
-                    )}
-                </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-80 p-0">
-                <div className="p-4 font-semibold border-b">Notifications</div>
-                <div className="max-h-96 overflow-y-auto">
-                    {isLoading && <div className="p-4 text-center"><LoaderCircle className="w-6 h-6 animate-spin mx-auto"/></div>}
-                    {!isLoading && (!notifications || notifications.length === 0) && (
-                        <p className="p-4 text-center text-sm text-muted-foreground">No new notifications.</p>
-                    )}
-                    {notifications?.map(notification => {
-                         const isRead = notification.readBy?.includes(user?.uid || '');
-                        return (
-                            <div key={notification.id} className={cn("p-4 border-b hover:bg-muted/50", !isRead && "bg-primary/10")} onClick={() => markAsRead(notification.id)}>
-                                <p className="font-semibold">{notification.title}</p>
-                                <p className="text-sm text-muted-foreground">{notification.message}</p>
-                            </div>
-                        )
-                    })}
-                </div>
-            </PopoverContent>
-        </Popover>
-    );
-}
-
 function TopBar() {
   const { isMobile } = useSidebar();
   const { user } = useUser();
@@ -323,11 +269,17 @@ function TopBar() {
   
   return (
     <header className="sticky top-0 z-10 flex h-16 items-center gap-4 border-b bg-background/80 backdrop-blur-sm px-4 md:px-6">
-      <SidebarTrigger className={cn(!isMobile && "hidden")}/>
+      <SidebarTrigger className={cn(!isMobile && "hidden")}>
+        <Menu />
+      </SidebarTrigger>
       <div className="flex-1 flex items-center gap-2">
          <h1 className="font-headline text-xl font-bold gradient-text">MPPSC & Civil Notes</h1>
       </div>
-      <NotificationPanel />
+      <Button variant="ghost" size="icon" asChild>
+        <Link href="/live-chat">
+            <MessageCircle className="h-6 w-6" />
+        </Link>
+      </Button>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" className="relative h-10 w-10 rounded-full">
@@ -342,6 +294,7 @@ function TopBar() {
         <DropdownMenuContent align="end">
           <DropdownMenuLabel>मेरा अकाउंट</DropdownMenuLabel>
           <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={() => router.push('/tutorials')}>इम्पोर्टेन्ट ट्यूटोरियल</DropdownMenuItem>
           <DropdownMenuItem>सेटिंग्स</DropdownMenuItem>
           <DropdownMenuItem>प्रोफाइल</DropdownMenuItem>
           <DropdownMenuSeparator />
@@ -377,7 +330,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   }, [isUserLoading, user, router, pathname]);
 
   // While checking auth state, show a global loader for protected pages.
-  const protectedPaths = ['/home', '/combos', '/papers', '/admin', '/privacy-policy', '/terms-conditions', '/refund-policy'];
+  const protectedPaths = ['/home', '/combos', '/papers', '/admin', '/privacy-policy', '/terms-conditions', '/refund-policy', '/live-chat', '/tutorials'];
   if (isUserLoading && protectedPaths.some(p => pathname.startsWith(p))) {
     return (
         <div className="flex h-screen items-center justify-center bg-background">

@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
@@ -244,11 +245,11 @@ export default function ManageSubFoldersPage() {
               {isLoading ? <div className="flex justify-center"><LoaderCircle className="animate-spin"/></div> : 
               allSubFolders.map(sf => (
                 <Card key={sf.id} className="flex items-center justify-between p-3">
-                  <div>
-                    <p className="font-semibold">{sf.name}</p>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold break-words">{sf.name}</p>
                     <p className="text-sm text-muted-foreground">टॉपिक: {getTabName(sf.tabId)} | विषय: {getPaperName(sf.paperId)}</p>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-shrink-0 ml-4">
                     <Button size="sm" variant="outline" onClick={() => handleEdit(sf)}><Edit className="h-4 w-4"/></Button>
                     <AlertDialog>
                       <AlertDialogTrigger asChild>

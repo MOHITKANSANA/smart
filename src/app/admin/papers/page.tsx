@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect } from "react";
@@ -192,10 +193,10 @@ export default function ManagePapersPage() {
               {papersLoading ? <div className="flex justify-center"><LoaderCircle className="animate-spin"/></div> : 
               papers?.map(p => (
                 <Card key={p.id} className="flex items-center justify-between p-3">
-                  <div>
-                    <p className="font-semibold">{p.paperNumber}. {p.name}</p>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold break-words">{p.paperNumber}. {p.name}</p>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-shrink-0 ml-4">
                     <Button size="sm" variant="outline" onClick={() => handleEdit(p)}><Edit className="h-4 w-4"/></Button>
                     <AlertDialog>
                       <AlertDialogTrigger asChild>

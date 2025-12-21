@@ -1,4 +1,5 @@
 
+
 export type PdfDocument = {
   id: string;
   name: string;
@@ -89,4 +90,24 @@ export type NoteStyleSettings = {
     highlightColor: string;
 }
 
+export type Tutorials = {
+    content: string;
+    updatedAt: any;
+}
+
+export type ChatMessage = {
+    id: string;
+    text: string;
+    senderId: string; // 'user' or 'admin'
+    createdAt: any;
+}
+
+export type ChatSession = {
+    id: string; // Corresponds to userId
+    userName: string;
+    userEmail: string;
+    lastMessage: string;
+    lastMessageAt: any;
+    isReadByAdmin: boolean;
+}
     
