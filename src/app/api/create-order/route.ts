@@ -1,4 +1,3 @@
-
 'use server';
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -14,8 +13,9 @@ export async function POST(req: NextRequest) {
     }
 
     const orderId = `order_${Date.now()}`;
-    const returnUrl = `https://studiopublicproxy-4x6y3j5qxq-uc.a.run.app/api/payment-status?order_id={order_id}`;
-
+    // The return_url is now managed by Cashfree's redirect. We handle status on the client.
+    // However, if you need server-to-server webhook verification, you'd set that up in the Cashfree dashboard.
+    
     const requestBody = {
       order_id: orderId,
       order_amount: Number(item.price),
@@ -27,8 +27,9 @@ export async function POST(req: NextRequest) {
         customer_phone: userPhone || "9999999999",
         customer_name: userName || 'User',
       },
-      order_meta: {
-        return_url: returnUrl,
+       order_meta: {
+        // No return_url here for standard checkout, it's handled client-side.
+        // If you were using seamless, you would provide it.
       },
     };
 
@@ -48,33 +49,12 @@ export async function POST(req: NextRequest) {
 
     if (!response.ok) {
         console.error('Cashfree API Error:', responseData);
-        throw new Error(responseData.message || 'Failed to create order with Cashfree');
+        // Forward the specific error from Cashfree to the client
+        return NextResponse.json({ error: responseData.message || 'Failed to create order with Cashfree' }, { status: response.status });
     }
     
-    // In a real application, you would save the pending payment to your database here.
-    // This is commented out to focus on the payment gateway integration itself.
-    /*
-    if (itemType !== 'test') {
-        const { getFirestore: getAdminFirestore, Timestamp } = await import('firebase-admin/firestore');
-        const { initializeApp, getApps } = await import('firebase-admin/app');
-
-        if (getApps().length === 0) {
-            initializeApp();
-        }
-        
-        const adminFirestore = getAdminFirestore();
-        const paymentRef = adminFirestore.collection('payments').doc(orderId);
-        await paymentRef.set({
-            userId: userId,
-            itemId: item.id,
-            itemType: itemType,
-            amount: item.price,
-            orderId: orderId,
-            status: 'PENDING',
-            createdAt: Timestamp.now(),
-        });
-    }
-    */
+    // In a real application with server-side payment verification, you would save this pending payment.
+    // For now, it's handled on the client.
 
     return NextResponse.json({
       payment_session_id: responseData.payment_session_id,
