@@ -2,14 +2,9 @@
 'use server';
 
 import { NextRequest, NextResponse } from 'next/server';
-import http from 'http';
 
 // This is the server-side API route that creates a payment order with Cashfree.
 export async function POST(req: NextRequest) {
-  
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 30000); // 30-second timeout
-
   try {
     const body = await req.json();
     const { userId, userEmail, userPhone, userName, item, itemType } = body;
@@ -26,7 +21,7 @@ export async function POST(req: NextRequest) {
     }
 
     const orderId = `order_${Date.now()}`;
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://example.com';
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://pcsnote.netlify.app'; // Use production URL as a safe fallback
     const returnUrl = `${baseUrl}/api/payment-status?order_id=${orderId}`;
     
     // 3. Construct the request body for Cashfree API
@@ -43,7 +38,6 @@ export async function POST(req: NextRequest) {
       },
        order_meta: {
         return_url: returnUrl,
-        notify_url: returnUrl,
       },
       order_tags: {
         itemId: item.id,
@@ -51,22 +45,7 @@ export async function POST(req: NextRequest) {
         userId: userId,
       }
     };
-
-    // 4. Temporarily disable Firestore write to isolate the issue.
-    // We will re-enable this in a separate step.
-    /*
-    const paymentRef = adminFirestore.doc(`payments/${orderId}`);
-    await paymentRef.set({
-        userId: userId,
-        itemId: item.id,
-        itemType: itemType,
-        amount: Number(item.price),
-        orderId: orderId,
-        status: 'PENDING',
-        createdAt: Timestamp.now(),
-    });
-    */
-
+    
     // 5. Make the API call to Cashfree's production server
     const response = await fetch("https://api.cashfree.com/pg/orders", {
         method: 'POST',
@@ -77,14 +56,7 @@ export async function POST(req: NextRequest) {
             'x-api-version': '2023-08-01',
         },
         body: JSON.stringify(requestBody),
-        // @ts-ignore
-        agent: new http.Agent({ keepAlive: false }),
-        // @ts-ignore
-        duplex: 'half',
-        signal: controller.signal, // Add AbortSignal
     });
-
-    clearTimeout(timeoutId); // Clear the timeout if the request completes
 
     const responseData = await response.json();
 
@@ -92,7 +64,6 @@ export async function POST(req: NextRequest) {
     if (!response.ok) {
         console.error('Cashfree API Error:', responseData);
         const errorMessage = responseData.message || 'Failed to create order with Cashfree';
-        // await paymentRef.set({ status: 'FAILED', error: errorMessage }, { merge: true });
         return NextResponse.json({ error: errorMessage }, { status: response.status });
     }
     
@@ -102,12 +73,7 @@ export async function POST(req: NextRequest) {
     });
 
   } catch (error: any) {
-    clearTimeout(timeoutId); // Clear timeout on error as well
-    if (error.name === 'AbortError') {
-      console.error('Cashfree API request timed out.');
-      return NextResponse.json({ error: 'Payment gateway timed out. Please try again.' }, { status: 504 });
-    }
-    console.error('Order creation API error:', error);
+    console.error('[API Create Order] Server Error:', error);
     return NextResponse.json({ error: error.message || 'An unknown server error occurred.' }, { status: 500 });
   }
 }

@@ -66,18 +66,20 @@ export default function PaymentDialog({ isOpen, setIsOpen, item, itemType }: Pay
                 }),
             });
 
-            const data = await res.json();
-
+            // Client-side safety check
             if (!res.ok) {
-                throw new Error(data.error || 'सर्वर से ऑर्डर बनाने में विफल।');
+                const errorText = await res.text();
+                throw new Error(`सर्वर से ऑर्डर बनाने में विफल: ${errorText}`);
             }
+
+            const data = await res.json();
             
             if (!data.payment_session_id) {
                 throw new Error('सर्वर से payment_session_id नहीं मिला।');
             }
 
             const cashfree = new window.Cashfree({
-                mode: "production",
+                mode: "production", // Use "production" for live
             });
             
             cashfree.checkout({
