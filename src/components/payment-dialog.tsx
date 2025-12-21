@@ -26,23 +26,26 @@ interface PaymentDialogProps {
   itemType: 'combo' | 'pdf' | 'test';
 }
 
+declare global {
+  interface Window {
+    Cashfree: any;
+  }
+}
+
 export default function PaymentDialog({ isOpen, setIsOpen, item, itemType }: PaymentDialogProps) {
     const { user } = useUser();
     const firestore = useFirestore();
     const { toast } = useToast();
     const [isProcessing, setIsProcessing] = useState(false);
     
-    // We still fetch the appUser for details, but the payment will not wait for it.
     const userDocRef = useMemoFirebase(() => user ? doc(firestore, 'users', user.uid) : null, [firestore, user]);
     const { data: appUser } = useDoc<AppUser>(userDocRef);
 
     const handlePayment = async () => {
         setIsProcessing(true);
         try {
-            console.log("Payment started for item:", item.name);
-
             if (typeof window === "undefined" || !window.Cashfree) {
-                toast({ variant: 'destructive', title: 'त्रुटि', description: 'कैशफ्री SDK लोड नहीं हुई है, कृपया कुछ क्षण प्रतीक्षा करें।' });
+                toast({ variant: 'destructive', title: 'त्रुटि', description: 'कैशफ्री SDK लोड नहीं हुई है। कृपया पेज को रीफ्रेश करें।' });
                 setIsProcessing(false);
                 return;
             }
@@ -50,7 +53,7 @@ export default function PaymentDialog({ isOpen, setIsOpen, item, itemType }: Pay
             const isTestPayment = itemType === 'test';
             
             if (!user && !isTestPayment) {
-                toast({ variant: 'destructive', title: 'त्रुटि-', description: 'उपयोगकर्ता लॉग इन नहीं है।' });
+                toast({ variant: 'destructive', title: 'त्रुटि', description: 'भुगतान के लिए आपको लॉग इन करना होगा।' });
                 setIsProcessing(false);
                 return;
             }
@@ -59,11 +62,10 @@ export default function PaymentDialog({ isOpen, setIsOpen, item, itemType }: Pay
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    // The API now handles defaults, so we don't need to wait for appUser
                     userId: isTestPayment ? 'test_user_001' : user!.uid,
                     userName: isTestPayment ? 'Test User' : (appUser?.fullName || user?.email),
                     userEmail: isTestPayment ? 'test@example.com' : user!.email,
-                    userPhone: appUser?.mobileNumber, // API will use a default if this is null
+                    userPhone: appUser?.mobileNumber,
                     item: { id: item.id, name: item.name, price: item.price || 0 },
                     itemType: itemType,
                 })
@@ -91,6 +93,8 @@ export default function PaymentDialog({ isOpen, setIsOpen, item, itemType }: Pay
         } catch (error: any) {
             console.error('Payment initiation error:', error);
             toast({ variant: 'destructive', title: 'भुगतान त्रुटि', description: `भुगतान सत्र बनाने में विफल: ${error.message}` });
+        } finally {
+            // This will run whether the payment succeeds, fails, or throws an error
             setIsProcessing(false);
         }
     };
