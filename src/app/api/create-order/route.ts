@@ -9,11 +9,14 @@ let adminApp: App;
 
 if (!getApps().length) {
     try {
-        if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
-            const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
+        const serviceAccountKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
+        if (serviceAccountKey) {
+            const serviceAccount = JSON.parse(serviceAccountKey);
             adminApp = initializeApp({
                 credential: cert(serviceAccount)
             });
+        } else {
+            console.warn("Firebase Admin Service Account Key is not set. Firestore operations in this context will be skipped.");
         }
     } catch (error) {
         console.error("Firebase Admin initialization error:", error);
@@ -62,7 +65,6 @@ export async function POST(req: NextRequest) {
         } catch (dbError) {
             console.error("Firestore write error:", dbError);
             // Non-critical error, we can still proceed with payment creation.
-            // The sync mechanism can be used later to reconcile.
         }
     } else {
         console.warn("Firestore Admin is not initialized. Skipping DB write for pending payment.");
