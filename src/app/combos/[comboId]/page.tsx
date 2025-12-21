@@ -62,8 +62,6 @@ export default function ComboDetailPage() {
     const comboRef = useMemoFirebase(() => doc(firestore, 'combos', comboId), [firestore, comboId]);
     const { data: combo, isLoading: isLoadingCombo } = useDoc<Combo>(comboRef);
 
-    const isDataLoading = isUserLoading || !appUser;
-
     const hasAccess = useMemo(() => {
         if (!combo || !appUser) return false;
         if (combo.accessType === 'Free') return true;
@@ -118,12 +116,8 @@ export default function ComboDetailPage() {
                                 <CardTitle className="text-yellow-200">यह एक पेड कॉम्बो है</CardTitle>
                                 <CardDescription className="text-yellow-300/80">इस कॉम्बो के सभी PDFs को एक्सेस करने के लिए अभी खरीदें।</CardDescription>
                             </div>
-                            <Button onClick={handleBuyNow} className="bg-gradient-to-r from-yellow-400 to-orange-500 text-black font-bold shadow-lg w-full sm:w-auto" disabled={isDataLoading}>
-                                {isDataLoading ? (
-                                    <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
-                                ) : (
-                                    <ShoppingCart className="mr-2 h-4 w-4" />
-                                )}
+                            <Button onClick={handleBuyNow} className="bg-gradient-to-r from-yellow-400 to-orange-500 text-black font-bold shadow-lg w-full sm:w-auto">
+                                <ShoppingCart className="mr-2 h-4 w-4" />
                                  अभी खरीदें ₹{combo.price}
                             </Button>
                         </CardContent>

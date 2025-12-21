@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -33,26 +33,22 @@ declare global {
 
 
 export default function PaymentDialog({ isOpen, setIsOpen, item, itemType }: PaymentDialogProps) {
-    const { user } = useUser();
+    const { user, isUserLoading } = useUser();
     const firestore = useFirestore();
     const { toast } = useToast();
-    const [isLoading, setIsLoading] = useState(false);
+    const [isProcessing, setIsProcessing] = useState(false);
 
     const userDocRef = useMemoFirebase(() => user ? doc(firestore, 'users', user.uid) : null, [firestore, user]);
-    const { data: appUser } = useDoc<AppUser>(userDocRef);
+    const { data: appUser, isLoading: isAppUserLoading } = useDoc<AppUser>(userDocRef);
+
+    const isDataReady = !isUserLoading && !isAppUserLoading && user && appUser;
 
     const handlePayment = async () => {
-        setIsLoading(true);
+        setIsProcessing(true);
 
-        if (!user) {
-            toast({ variant: 'destructive', title: 'त्रुटि', description: 'कृपया भुगतान करने से पहले लॉगिन करें।' });
-            setIsLoading(false);
-            return;
-        }
-
-        if (!appUser) {
-            toast({ variant: 'destructive', title: 'त्रुटि', description: 'प्रोफ़ाइल लोड हो रही है, कृपया कुछ सेकंड प्रतीक्षा करें और पुनः प्रयास करें।' });
-            setIsLoading(false);
+        if (!isDataReady) {
+            toast({ variant: 'destructive', title: 'त्रुटि', description: 'उपयोगकर्ता डेटा पूरी तरह से लोड नहीं हुआ है। कृपया कुछ सेकंड प्रतीक्षा करें।' });
+            setIsProcessing(false);
             return;
         }
 
@@ -100,7 +96,7 @@ export default function PaymentDialog({ isOpen, setIsOpen, item, itemType }: Pay
         } catch (error: any) {
             console.error('Payment initiation error:', error);
             toast({ variant: 'destructive', title: 'भुगतान त्रुटि', description: `भुगतान सत्र बनाने में विफल: ${error.message}` });
-            setIsLoading(false);
+            setIsProcessing(false);
         }
     };
 
@@ -124,8 +120,8 @@ export default function PaymentDialog({ isOpen, setIsOpen, item, itemType }: Pay
                 </div>
                 
                 <DialogFooter className="flex flex-col gap-2">
-                    <Button onClick={handlePayment} disabled={isLoading} className="w-full h-12 text-lg">
-                        {isLoading ? <LoaderCircle className="animate-spin" /> : `₹${item.price} का भुगतान करें`}
+                    <Button onClick={handlePayment} disabled={!isDataReady || isProcessing} className="w-full h-12 text-lg">
+                        {(!isDataReady || isProcessing) ? <LoaderCircle className="animate-spin" /> : `₹${item.price} का भुगतान करें`}
                     </Button>
                     <DialogClose asChild>
                         <Button variant="ghost" className="w-full">रद्द करें</Button>
