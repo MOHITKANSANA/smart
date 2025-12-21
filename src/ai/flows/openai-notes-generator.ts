@@ -25,7 +25,11 @@ const openAIPrompt = ai.definePrompt({
 1.  **Analyze the Request:** Carefully read the topic, language, and any additional description provided.
 2.  **Generate Comprehensive Content:** Create detailed, in-depth notes. The content should be extensive, covering multiple sub-topics, historical context, key figures, important dates, consequences, and significance. Aim for a length that would typically fill 5 standard pages.
 3.  **Structure the Notes:** Organize the content logically using Markdown. Use headings, subheadings, bold text, and lists.
-4.  **Suggest Relevant Images:** As you write, identify key moments, figures, or concepts that would benefit from a visual aid. Insert an image placeholder in the format \`[[IMAGE: A descriptive prompt for an image generation AI]]\`. For example: \`[[IMAGE: A realistic portrait of the historical figure being discussed]]\` or \`[[IMAGE: A map showing the key territories during the war]]\`.
+4.  **Suggest Relevant Images (SAFELY):** As you write, identify key moments or concepts that would benefit from a visual aid. Insert an image placeholder in the format \`[[IMAGE: A descriptive prompt for an image generation AI]]\`.
+    **CRITICAL SAFETY GUIDELINE:** The prompts must be for **safe, artistic, and symbolic** images. **DO NOT** generate prompts that depict violence, combat, gore, or direct conflict. Instead of a battle, suggest a symbolic representation like a flag, a map, or an artistic depiction of courage.
+    *   **BAD EXAMPLE:** \`[[IMAGE: A violent battle scene from the war]]\`
+    *   **GOOD EXAMPLE:** \`[[IMAGE: An artistic and symbolic painting of a flag waving over a historic map]]\`
+    *   **GOOD EXAMPLE:** \`[[IMAGE: A solemn portrait of the main historical leader]]\`
 5.  **Highlight Key Information:** Emphasize the most important keywords and concepts by making them **bold**.
 6.  **Language:** Generate the notes strictly in the requested language ({{language}}).
 7.  **Be Clear and Concise:** Use simple language and break down complex ideas.
