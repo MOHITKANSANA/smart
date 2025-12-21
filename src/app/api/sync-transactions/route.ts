@@ -1,0 +1,110 @@
+
+'use server';
+
+import { NextRequest, NextResponse } from 'next/server';
+import { initializeApp, getApps, App, cert } from "firebase-admin/app";
+import { getFirestore as getAdminFirestore, FieldValue } from 'firebase-admin/firestore';
+
+let adminApp: App;
+if (!getApps().length) {
+    try {
+        const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY!);
+        adminApp = initializeApp({ credential: cert(serviceAccount) });
+    } catch (error) {
+        console.error("Firebase Admin initialization error:", error);
+    }
+} else {
+    adminApp = getApps()[0];
+}
+
+const adminFirestore = getAdminFirestore(adminApp);
+
+async function fetchAllSuccessfulOrdersFromCashfree() {
+    const fromDate = new Date();
+    fromDate.setDate(fromDate.getDate() - 30); // Last 30 days
+    const from = fromDate.toISOString().split('T')[0];
+
+    const toDate = new Date();
+    toDate.setDate(toDate.getDate() + 1);
+    const to = toDate.toISOString().split('T')[0];
+    
+    const url = `https://api.cashfree.com/pg/orders?from=${from}&to=${to}`;
+    
+    const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+            'Accept': 'application/json',
+            'x-client-id': process.env.CASHFREE_APP_ID!,
+            'x-client-secret': process.env.CASHFREE_SECRET_KEY!,
+            'x-api-version': '2023-08-01',
+        },
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Cashfree API Error while fetching orders:', errorData);
+        throw new Error('Failed to fetch orders from Cashfree.');
+    }
+    
+    const allOrders = await response.json();
+    return allOrders.filter((order: any) => order.order_status === 'PAID');
+}
+
+
+export async function POST(req: NextRequest) {
+    try {
+        if (!adminFirestore) {
+            throw new Error("Admin Firestore not initialized");
+        }
+        
+        const successfulOrders = await fetchAllSuccessfulOrdersFromCashfree();
+        const batch = adminFirestore.batch();
+        let syncedCount = 0;
+
+        for (const order of successfulOrders) {
+            const orderId = order.order_id;
+            const paymentRef = adminFirestore.doc(`payments/${orderId}`);
+            const paymentDoc = await paymentRef.get();
+            
+            // Only process if the payment is not already marked as SUCCESS
+            if (!paymentDoc.exists || paymentDoc.data()?.status !== 'SUCCESS') {
+                const { userId, itemId, itemType } = order.order_tags;
+
+                if (!userId || !itemId || !itemType) {
+                    console.warn(`Skipping order ${orderId} due to missing tags.`);
+                    continue;
+                }
+
+                // 1. Create or update payment record
+                batch.set(paymentRef, {
+                    id: orderId,
+                    userId: userId,
+                    itemId: itemId,
+                    itemType: itemType,
+                    amount: order.order_amount,
+                    status: 'SUCCESS',
+                    createdAt: new Date(order.order_expiry_time), // Approximate time
+                    updatedAt: new Date(),
+                }, { merge: true });
+
+                // 2. Grant access to the user
+                const userRef = adminFirestore.doc(`users/${userId}`);
+                batch.update(userRef, {
+                    purchasedItems: FieldValue.arrayUnion(itemId)
+                });
+                
+                syncedCount++;
+            }
+        }
+
+        if (syncedCount > 0) {
+            await batch.commit();
+        }
+
+        return NextResponse.json({ message: 'Sync complete.', syncedCount });
+
+    } catch (error: any) {
+        console.error('Error during transaction sync:', error);
+        return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+}

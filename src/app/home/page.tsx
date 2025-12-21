@@ -159,21 +159,7 @@ export default function HomePage() {
         )}
 
         <div className="space-y-8">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Link href="/ai-notes-generator" className="block group">
-                  <Card className="p-6 bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500 text-white shadow-lg hover:shadow-xl transition-shadow h-full">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <CardTitle className="text-2xl font-headline">AI Notes जेनरेटर</CardTitle>
-                            <CardDescription className="text-white/80">रंगीन और आकर्षक नोट्स बनाएं</CardDescription>
-                        </div>
-                        <WandSparkles className="w-10 h-10 group-hover:animate-pulse" />
-                    </div>
-                  </Card>
-                </Link>
-            </div>
-
-
+            
             {papers && papers.length > 0 && (
               <div className="space-y-4">
                   <h2 className="text-xl font-headline font-bold gradient-text">Subjects</h2>
@@ -202,12 +188,24 @@ export default function HomePage() {
                   </div>
               </div>
             )}
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Link href="/ai-notes-generator" className="block group">
+                  <Card className="p-6 bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500 text-white shadow-lg hover:shadow-xl transition-shadow h-full">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <CardTitle className="text-2xl font-headline">AI Notes जेनरेटर</CardTitle>
+                            <CardDescription className="text-white/80">रंगीन और आकर्षक नोट्स बनाएं</CardDescription>
+                        </div>
+                        <WandSparkles className="w-10 h-10 group-hover:animate-pulse" />
+                    </div>
+                  </Card>
+                </Link>
+            </div>
+
         </div>
       </main>
 
     </AppLayout>
   );
 }
-    
-
-    

@@ -15,6 +15,7 @@ import {
   getDoc,
   where,
   getDocs,
+  writeBatch,
 } from "firebase/firestore";
 import {
   useFirestore,
@@ -30,7 +31,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { FileText, Book, Users, DollarSign, Package, LoaderCircle, Send, Library, FolderKanban, ShieldCheck, KeyRound, Settings, Palette, History } from "lucide-react";
+import { FileText, Book, Users, DollarSign, Package, LoaderCircle, Send, Library, FolderKanban, ShieldCheck, KeyRound, Settings, Palette, History, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import type { Paper, User as AppUser, Combo, Payment, NoteStyleSettings } from "@/lib/types";
@@ -205,6 +206,7 @@ function AdminDashboard() {
   const firestore = useFirestore();
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   
   const papersQuery = useMemoFirebase(() => query(collection(firestore, "papers")), [firestore]);
   const { data: papers, isLoading: papersLoading } = useCollection<Paper>(papersQuery);
@@ -233,6 +235,23 @@ function AdminDashboard() {
     setIsSubmitting(false);
   }
 
+  const handleSyncTransactions = async () => {
+    setIsSyncing(true);
+    toast({ title: "सिंकिंग शुरू...", description: "Cashfree से पुराने ट्रांजेक्शन की जाँच की जा रही है।" });
+    try {
+      const response = await fetch('/api/sync-transactions', { method: 'POST' });
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || 'सिंक करने में विफल।');
+      }
+      toast({ title: "सफलता!", description: `${result.syncedCount} ट्रांजेक्शन सफलतापूर्वक सिंक और अपडेट किए गए।` });
+    } catch (error: any) {
+      toast({ variant: 'destructive', title: "सिंक विफल", description: error.message });
+    } finally {
+      setIsSyncing(false);
+    }
+  }
+
   const managementSections = [
     { title: "विषय (Papers)", icon: Book, link: "/admin/papers" },
     { title: "टॉपिक्स (Tabs)", icon: FolderKanban, link: "/admin/tabs" },
@@ -251,9 +270,11 @@ function AdminDashboard() {
     let todayTotal = 0;
 
     payments.forEach(p => {
-        const paymentDate = p.createdAt?.toDate();
-        if (paymentDate && paymentDate >= today) {
-            todayTotal += p.amount;
+        if (p.createdAt?.toDate) { // Ensure createdAt is a Firestore Timestamp
+            const paymentDate = p.createdAt.toDate();
+            if (paymentDate >= today) {
+                todayTotal += p.amount;
+            }
         }
         total += p.amount;
     });
@@ -295,16 +316,31 @@ function AdminDashboard() {
           ))}
         </CardContent>
       </Card>
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <Card id="send-notification" className="shadow-lg"><CardHeader><CardTitle className="flex items-center gap-2"><Send /> मैन्युअल नोटिफिकेशन भेजें</CardTitle><CardDescription>सभी यूज़र्स को एक कस्टम नोटिफिकेशन भेजें।</CardDescription></CardHeader><CardContent><Form {...notificationForm}><form onSubmit={notificationForm.handleSubmit(onSendNotification)} className="space-y-4"><FormField control={notificationForm.control} name="title" render={({ field }) => (<FormItem><FormLabel>नोटिफिकेशन का शीर्षक</FormLabel><FormControl><Input placeholder="नया स्टडी मटेरियल उपलब्ध है!" {...field} /></FormControl><FormMessage /></FormItem>)} /><FormField control={notificationForm.control} name="message" render={({ field }) => (<FormItem><FormLabel>नोटिफिकेशन का संदेश</FormLabel><FormControl><Textarea placeholder="आज हमने इतिहास के नए नोट्स अपलोड किए हैं, अभी देखें।" {...field} /></FormControl><FormMessage /></FormItem>)} /><FormField control={notificationForm.control} name="imageUrl" render={({ field }) => (<FormItem><FormLabel>इमेज URL (वैकल्पिक)</FormLabel><FormControl><Input placeholder="https://example.com/image.png" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                <Button type="submit" className="w-full" disabled={isSubmitting}>{isSubmitting ? <LoaderCircle className="animate-spin" /> : "अभी भेजें"}</Button></form></Form></CardContent></Card>
+        
+        <Card>
+            <CardHeader><CardTitle>सिस्टम सिंक</CardTitle><CardDescription>पुराने सफल भुगतानों को सिंक करें और यूज़र्स को एक्सेस प्रदान करें।</CardDescription></CardHeader>
+            <CardContent>
+                <p className="text-sm text-muted-foreground mb-4">
+                    यह बटन Cashfree से पिछले 30 दिनों के सभी सफल ट्रांजेक्शन को आपके सिस्टम में सिंक करेगा। यदि किसी यूज़र ने भुगतान किया है और उसे एक्सेस नहीं मिला है, तो यह उसे ठीक कर देगा।
+                </p>
+                <Button onClick={handleSyncTransactions} disabled={isSyncing} className="w-full">
+                    {isSyncing ? <LoaderCircle className="animate-spin mr-2" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+                    {isSyncing ? 'सिंक हो रहा है...' : 'पुराने ट्रांजेक्शन सिंक करें'}
+                </Button>
+            </CardContent>
+        </Card>
+      </div>
 
-      <Card>
+       <Card>
         <CardHeader><CardTitle>AI नोट्स स्टाइल कस्टमाइज़र</CardTitle><CardDescription>यहां से AI द्वारा जेनरेट किए गए नोट्स के रंग और स्टाइल को बदलें।</CardDescription></CardHeader>
         <CardContent>
             <NotesColorCustomizer />
         </CardContent>
       </Card>
-      
-      <Card id="send-notification" className="shadow-lg"><CardHeader><CardTitle className="flex items-center gap-2"><Send /> मैन्युअल नोटिफिकेशन भेजें</CardTitle><CardDescription>सभी यूज़र्स को एक कस्टम नोटिफिकेशन भेजें।</CardDescription></CardHeader><CardContent><Form {...notificationForm}><form onSubmit={notificationForm.handleSubmit(onSendNotification)} className="space-y-4"><FormField control={notificationForm.control} name="title" render={({ field }) => (<FormItem><FormLabel>नोटिफिकेशन का शीर्षक</FormLabel><FormControl><Input placeholder="नया स्टडी मटेरियल उपलब्ध है!" {...field} /></FormControl><FormMessage /></FormItem>)} /><FormField control={notificationForm.control} name="message" render={({ field }) => (<FormItem><FormLabel>नोटिफिकेशन का संदेश</FormLabel><FormControl><Textarea placeholder="आज हमने इतिहास के नए नोट्स अपलोड किए हैं, अभी देखें।" {...field} /></FormControl><FormMessage /></FormItem>)} /><FormField control={notificationForm.control} name="imageUrl" render={({ field }) => (<FormItem><FormLabel>इमेज URL (वैकल्पिक)</FormLabel><FormControl><Input placeholder="https://example.com/image.png" {...field} /></FormControl><FormMessage /></FormItem>)} />
-              <Button type="submit" className="w-full" disabled={isSubmitting}>{isSubmitting ? <LoaderCircle className="animate-spin" /> : "अभी भेजें"}</Button></form></Form></CardContent></Card>
     </div>
   );
 }
@@ -320,5 +356,3 @@ export default function AdminPage() {
         </AppLayout>
     );
 }
-
-    
