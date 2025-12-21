@@ -8,7 +8,11 @@ import { randomUUID } from 'crypto';
 // This ensures that the keys are not hardcoded and are secure.
 Cashfree.XClientId = process.env.CASHFREE_APP_ID!;
 Cashfree.XClientSecret = process.env.CASHFREE_SECRET_KEY!;
-Cashfree.XEnvironment = Cashfree.Environment.PRODUCTION; // Use PRODUCTION for live payments
+// Switch between SANDBOX for testing and PRODUCTION for live payments
+Cashfree.XEnvironment = process.env.NODE_ENV === 'production' 
+    ? Cashfree.Environment.PRODUCTION 
+    : Cashfree.Environment.SANDBOX;
+
 
 export async function POST(req: NextRequest) {
   try {
@@ -19,6 +23,15 @@ export async function POST(req: NextRequest) {
     }
 
     const orderId = `order_${randomUUID()}`;
+
+    // Determine the base URL. Use a public proxy for local development if NEXT_PUBLIC_APP_URL is a cloud workstation URL.
+    // In production, it will use the actual app URL.
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || '';
+    const baseUrl = appUrl.includes('cloudworkstations.dev') 
+        ? 'https://studiopublicproxy-4x6y3j5qxq-uc.a.run.app' // A temporary public proxy for callbacks
+        : appUrl;
+        
+    const returnUrl = `${baseUrl}/api/payment-status?order_id={order_id}`;
 
     const request = {
       order_amount: item.price,
@@ -31,8 +44,7 @@ export async function POST(req: NextRequest) {
         customer_name: userName,
       },
       order_meta: {
-        // Make sure NEXT_PUBLIC_APP_URL is set in your environment variables
-        return_url: `${process.env.NEXT_PUBLIC_APP_URL}/api/payment-status?order_id={order_id}`,
+        return_url: returnUrl,
       },
       order_note: `Payment for ${item.name}`,
     };
