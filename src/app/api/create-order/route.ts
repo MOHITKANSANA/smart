@@ -43,6 +43,7 @@ export async function POST(req: NextRequest) {
         const { getFirestore: getAdminFirestore, Timestamp } = await import('firebase-admin/firestore');
         const { initializeApp, getApps, cert } = await import('firebase-admin/app');
 
+        // Check if the default app is already initialized
         if (getApps().length === 0) {
             initializeApp();
         }
