@@ -24,7 +24,6 @@ export default function RootLayout({
           href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700;800&display=swap"
           rel="stylesheet"
         />
-        <Script src="https://sdk.cashfree.com/js/v3/cashfree-checkout.js" strategy="beforeInteractive" />
       </head>
       <body className="font-body antialiased">
         <ThemeProvider
@@ -38,6 +37,7 @@ export default function RootLayout({
             <Toaster />
           </FirebaseClientProvider>
         </ThemeProvider>
+        <Script src="https://sdk.cashfree.com/js/v3/cashfree-checkout.js" strategy="lazyOnload" />
       </body>
     </html>
   );
