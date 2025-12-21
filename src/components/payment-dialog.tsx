@@ -43,8 +43,15 @@ export default function PaymentDialog({ isOpen, setIsOpen, item, itemType }: Pay
 
     const handlePayment = async () => {
         setIsLoading(true);
-        if (!user || !appUser) {
+
+        if (!user) {
             toast({ variant: 'destructive', title: 'त्रुटि', description: 'कृपया भुगतान करने से पहले लॉगिन करें।' });
+            setIsLoading(false);
+            return;
+        }
+
+        if (!appUser) {
+            toast({ variant: 'destructive', title: 'त्रुटि', description: 'प्रोफ़ाइल लोड हो रही है, कृपया कुछ सेकंड प्रतीक्षा करें और पुनः प्रयास करें।' });
             setIsLoading(false);
             return;
         }
