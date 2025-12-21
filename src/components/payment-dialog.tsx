@@ -41,53 +41,54 @@ export default function PaymentDialog({ isOpen, setIsOpen, item, itemType }: Pay
 
     const handlePayment = async () => {
         setIsProcessing(true);
-        try {
-            console.log("Payment process started for item:", item.name);
 
-            // Step 1: Fetch order details from our server
+        // Crucial Check: Ensure Cashfree SDK is loaded.
+        if (typeof window === "undefined" || !window.Cashfree) {
+            toast({
+                variant: 'destructive',
+                title: 'भुगतान त्रुटि',
+                description: "पेमेंट गेटवे लोड नहीं हो सका। कृपया पृष्ठ को रीफ़्रेश करें और पुनः प्रयास करें।",
+            });
+            setIsProcessing(false);
+            return;
+        }
+
+        try {
             const res = await fetch("/api/create-order", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
                   userId: user?.uid,
-                  userName: appUser?.fullName || user?.email,
-                  userEmail: user?.email,
-                  userPhone: appUser?.mobileNumber,
+                  userName: appUser?.fullName || user?.email || 'Test User',
+                  userEmail: user?.email || 'default-email@example.com',
+                  userPhone: appUser?.mobileNumber || '9999999999',
                   item: { id: item.id, name: item.name, price: item.price || 0 },
                   itemType: itemType,
               }),
             });
 
-            // Step 2: Handle non-OK server responses
             if (!res.ok) {
                 const errorData = await res.json().catch(() => ({ error: 'An unknown server error occurred.' }));
                 throw new Error(errorData.error || `Server responded with status: ${res.status}`);
             }
 
             const data = await res.json();
-            console.log("Server response received:", data);
             
-            // Step 3: Validate the server response
             if (data.error) {
                 throw new Error(data.error);
             }
+
             if (!data.payment_session_id) {
                 throw new Error("Server did not return a payment_session_id.");
             }
-
-            // Step 4: Check for Cashfree SDK on the window object
-            if (typeof window === "undefined" || !window.Cashfree) {
-                throw new Error("Cashfree SDK is not available. Please refresh the page and try again.");
-            }
     
-            // Step 5: Initialize and invoke Cashfree checkout
             const cashfree = new window.Cashfree({
-                mode: "PROD", 
+                mode: "PROD", // PROD for production
             });
     
             cashfree.checkout({
                 paymentSessionId: data.payment_session_id,
-                redirectTarget: "_self", // Open in the same tab
+                redirectTarget: "_self",
             });
     
         } catch (error: any) {
@@ -97,10 +98,10 @@ export default function PaymentDialog({ isOpen, setIsOpen, item, itemType }: Pay
                 title: 'भुगतान में समस्या आई',
                 description: error.message,
             });
-            setIsProcessing(false); // Stop processing on error
+            setIsProcessing(false);
         }
-        // NOTE: We don't set isProcessing to false in the success path
-        // because the page will redirect to Cashfree.
+        // No finally block needed if we only reset on error.
+        // On success, the page redirects, so state doesn't matter.
     };
 
 
