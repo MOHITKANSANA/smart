@@ -22,30 +22,26 @@ export function useCashfree() {
     // Check if the script tag already exists in the document.
     let script = document.querySelector(`script[src="${CASHFREE_SDK_URL}"]`);
 
+    const handleLoad = () => {
+      setIsReady(true);
+    };
+
     if (!script) {
       // If not, create and append it to the document body.
       script = document.createElement('script');
       script.src = CASHFREE_SDK_URL;
       script.async = true;
+      script.addEventListener('load', handleLoad);
       document.body.appendChild(script);
+    } else {
+        // if script already exists, it might be loading, or it might have failed.
+        // if window.cashfree is not there yet, we add a listener.
+        script.addEventListener('load', handleLoad);
     }
     
-    const handleLoad = () => {
-      setIsReady(true);
-    };
-
-    const handleError = () => {
-      setError("कैशफ्री पेमेंट SDK लोड करने में विफल। कृपया अपना इंटरनेट कनेक्शन जांचें और पुनः प्रयास करें।");
-    };
-
-    // Add event listeners to the script tag.
-    script.addEventListener('load', handleLoad);
-    script.addEventListener('error', handleError);
-
     // Cleanup function to remove event listeners when the component unmounts.
     return () => {
       script?.removeEventListener('load', handleLoad);
-      script?.removeEventListener('error', handleError);
     };
   }, []);
 
