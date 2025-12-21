@@ -4,8 +4,8 @@
 import React, { useMemo, useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { LoaderCircle, ChevronRight, WandSparkles, DollarSign } from "lucide-react";
-import { collection, query, orderBy, limit, doc, getDoc, updateDoc, arrayUnion } from "firebase/firestore";
+import { LoaderCircle, ChevronRight, WandSparkles, DollarSign, Book } from "lucide-react";
+import { collection, query, orderBy, limit, doc, getDoc, updateDoc, arrayUnion, writeBatch } from "firebase/firestore";
 import { useCollection, useFirestore, useMemoFirebase, useUser } from "@/firebase";
 import { AppLayout } from "@/components/app-layout";
 import {
@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/accordion";
 import { Card, CardTitle, CardDescription } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import type { Paper, Combo, Tab, Payment } from "@/lib/types";
+import type { Paper, Combo, Tab, Payment, User as AppUser } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
 import { useToast } from "@/hooks/use-toast";
@@ -27,41 +27,55 @@ function PaymentStatusHandler() {
     const firestore = useFirestore();
     const { user } = useUser();
     const { toast } = useToast();
+    const router = useRouter();
+    const [isVerifying, setIsVerifying] = useState(false);
 
     useEffect(() => {
         const orderId = searchParams.get('order_id');
         const paymentCheck = searchParams.get('payment_check');
 
-        if (orderId && paymentCheck === 'true') {
-            const checkPaymentStatus = async () => {
-                const paymentRef = doc(firestore, "payments", orderId);
-                const paymentDoc = await getDoc(paymentRef);
-                
-                if (paymentDoc.exists()) {
-                    const paymentData = paymentDoc.data() as Payment;
-                    if (paymentData.status === 'SUCCESS') {
-                        toast({ title: 'Payment Successful!', description: 'You now have access to the content.' });
-                        
-                        // Grant access on client side if webhook fails for any reason
-                        if(user && !user.isAnonymous) {
-                            const userRef = doc(firestore, "users", user.uid);
-                            await updateDoc(userRef, {
-                                purchasedItems: arrayUnion(paymentData.itemId)
-                            });
-                        }
+        if (orderId && paymentCheck === 'true' && !isVerifying) {
+            setIsVerifying(true);
+            toast({ title: 'आपका भुगतान सत्यापित किया जा रहा है...', description: 'कृपया प्रतीक्षा करें...' });
 
-                    } else if (paymentData.status === 'PENDING') {
-                         toast({ variant: 'destructive', title: 'Payment Pending', description: 'Your payment is still being processed.' });
-                    } else {
-                         toast({ variant: 'destructive', title: 'Payment Failed', description: 'Your payment was not successful. Please try again.' });
+            const verifyPayment = async () => {
+                try {
+                    const response = await fetch(`/api/get-payment-status?order_id=${orderId}`);
+                    if (!response.ok) {
+                        throw new Error('सर्वर से भुगतान की स्थिति प्राप्त करने में विफल।');
                     }
-                } else {
-                    toast({ variant: 'destructive', title: 'Error', description: 'Could not find the payment record.' });
+                    const data = await response.json();
+                    
+                    const paymentRef = doc(firestore, "payments", orderId);
+                    const userRef = user ? doc(firestore, "users", user.uid) : null;
+                    const batch = writeBatch(firestore);
+
+                    if (data.order_status === 'PAID') {
+                        toast({ title: 'भुगतान सफल!', description: 'आपको कंटेंट का एक्सेस मिल गया है।' });
+                        batch.update(paymentRef, { status: 'SUCCESS', updatedAt: new Date() });
+                        if (userRef && data.order_tags?.itemId) {
+                            batch.update(userRef, { purchasedItems: arrayUnion(data.order_tags.itemId) });
+                        }
+                    } else {
+                        toast({ variant: 'destructive', title: 'भुगतान विफल', description: 'आपका भुगतान सफल नहीं हुआ या रद्द कर दिया गया।' });
+                        batch.update(paymentRef, { status: 'FAILED', updatedAt: new Date() });
+                    }
+                    
+                    await batch.commit();
+
+                } catch (error: any) {
+                    console.error("Payment verification error:", error);
+                    toast({ variant: 'destructive', title: 'सत्यापन में त्रुटि', description: error.message });
+                } finally {
+                    // Clean up URL
+                    router.replace('/home', { scroll: false });
+                    setIsVerifying(false);
                 }
             };
-            checkPaymentStatus();
+
+            verifyPayment();
         }
-    }, [searchParams, firestore, user, toast]);
+    }, [searchParams, firestore, user, toast, router, isVerifying]);
 
     return null;
 }
@@ -138,7 +152,8 @@ function PaperItem({ paper, index }: { paper: Paper, index: number }) {
         <AccordionItem value={paper.id} className="border-b-0">
              <Card className="overflow-hidden shadow-md border-0 transition-all duration-300 ease-in-out hover:shadow-xl">
                  <AccordionTrigger className={cn("p-4 text-white text-left hover:no-underline bg-gradient-to-r", gradientClass)}>
-                    <div className="flex-1">
+                    <div className="flex items-center gap-3 flex-1">
+                        <Book className="w-6 h-6" />
                         <h3 className="font-headline text-lg font-bold">{paper.name}</h3>
                     </div>
                 </AccordionTrigger>
@@ -169,7 +184,7 @@ function ComboItem({ combo, index }: { combo: Combo; index: number }) {
     return (
         <Link href={`/combos/${combo.id}`} className="block group">
             <Card className={cn(
-                "text-white border-white/10 shadow-lg hover:shadow-2xl transition-all duration-300 transform group-hover:scale-105 aspect-square flex flex-col justify-center items-center p-2 overflow-hidden relative text-center",
+                "text-white border-white/10 shadow-lg hover:shadow-2xl transition-all duration-300 transform group-hover:scale-105 aspect-video flex flex-col justify-center items-center p-2 overflow-hidden relative text-center",
                 colorClass
             )}>
                  <div className="z-10 p-2 flex items-center justify-center h-full">
@@ -207,25 +222,7 @@ export default function HomePage() {
         )}
 
         <div className="space-y-8">
-            
-            {recentCombos && recentCombos.length > 0 && (
-              <div>
-                   <div className="flex justify-between items-center mb-4">
-                      <h2 className="text-xl font-headline font-bold gradient-text">Important Notes & Tricks</h2>
-                       <Button variant="link" asChild>
-                         <Link href="/combos">
-                           सभी देखें <ChevronRight className="ml-1 h-4 w-4" />
-                         </Link>
-                      </Button>
-                  </div>
-                  <div className="grid grid-cols-3 gap-4">
-                      {recentCombos.map((combo, index) => (
-                          <ComboItem key={combo.id} combo={combo} index={index} />
-                      ))}
-                  </div>
-              </div>
-            )}
-            
+
             {papers && papers.length > 0 && (
               <div className="space-y-4">
                   <h2 className="text-xl font-headline font-bold gradient-text">Subjects</h2>
@@ -236,8 +233,26 @@ export default function HomePage() {
                   </Accordion>
               </div>
             )}
+
+            {recentCombos && recentCombos.length > 0 && (
+              <div>
+                   <div className="flex justify-between items-center mb-4">
+                      <h2 className="text-xl font-headline font-bold gradient-text">Important Notes & Tricks</h2>
+                       <Button variant="link" asChild>
+                         <Link href="/combos">
+                           सभी देखें <ChevronRight className="ml-1 h-4 w-4" />
+                         </Link>
+                      </Button>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                      {recentCombos.map((combo, index) => (
+                          <ComboItem key={combo.id} combo={combo} index={index} />
+                      ))}
+                  </div>
+              </div>
+            )}
             
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4">
                 <Link href="/ai-notes-generator" className="block group">
                   <Card className="p-6 bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500 text-white shadow-lg hover:shadow-xl transition-shadow h-full">
                     <div className="flex items-center justify-between">

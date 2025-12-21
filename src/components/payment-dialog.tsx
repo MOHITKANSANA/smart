@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { LoaderCircle, ShoppingCart } from 'lucide-react';
 import type { Combo, PdfDocument, User as AppUser } from '@/lib/types';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc, serverTimestamp, writeBatch } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 
 declare global {
@@ -49,10 +49,10 @@ export default function PaymentDialog({ isOpen, setIsOpen, item, itemType }: Pay
         }
 
         const orderId = `order_${Date.now()}`;
+        const paymentRef = doc(firestore, "payments", orderId);
 
         try {
-            // 1. Create a PENDING record in Firestore first
-            const paymentRef = doc(firestore, "payments", orderId);
+            // 1. Create a PENDING record in Firestore on the client-side
             await setDoc(paymentRef, {
                 id: orderId,
                 userId: user.uid,
@@ -109,9 +109,8 @@ export default function PaymentDialog({ isOpen, setIsOpen, item, itemType }: Pay
                 title: 'भुगतान में समस्या आई',
                 description: error.message || 'एक अज्ञात त्रुटि हुई।',
             });
-            // If something fails, update the record to FAILED
-            const paymentRef = doc(firestore, "payments", orderId);
-            await setDoc(paymentRef, { status: 'FAILED', error: error.message }, { merge: true });
+            // If something fails before redirect, update the record to FAILED
+            await setDoc(paymentRef, { status: 'FAILED', error: error.message, updatedAt: serverTimestamp() }, { merge: true });
         } finally {
             setIsProcessing(false);
         }

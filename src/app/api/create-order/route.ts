@@ -18,8 +18,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Payment gateway credentials are not configured.' }, { status: 500 });
     }
     
-    // The return_url is now static and points to the production site for reliability
-    const returnUrl = `https://pcsnote.netlify.app/home?order_id=${orderId}`;
+    // The return_url points to the home page. The client-side will handle verification.
+    const returnUrl = `https://pcsnote.netlify.app/home?order_id=${orderId}&payment_check=true`;
 
     // 2. Construct the request body for Cashfree API
     const requestBody = {
@@ -35,6 +35,8 @@ export async function POST(req: NextRequest) {
       },
        order_meta: {
         return_url: returnUrl,
+        // The notify_url is for server-to-server webhooks
+        notify_url: `https://pcsnote.netlify.app/api/payment-status`,
       },
       order_tags: {
         itemId: item.id,
