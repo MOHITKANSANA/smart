@@ -1,6 +1,7 @@
 'use server';
 
 import { NextRequest, NextResponse } from 'next/server';
+import http from 'http';
 
 // This is the server-side API route that creates a payment order with Cashfree.
 export async function POST(req: NextRequest) {
@@ -8,18 +9,20 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { userId, userEmail, userPhone, userName, item, itemType } = body;
 
-    // Validate essential item information
+    // 1. Validate essential item information from our client
     if (!item || typeof item.price !== 'number' || !item.name) {
       return NextResponse.json({ error: 'Item information (id, name, price) is missing or invalid' }, { status: 400 });
     }
-     if (!process.env.CASHFREE_APP_ID || !process.env.CASHFREE_SECRET_KEY) {
+    
+    // 2. Validate server environment variables
+    if (!process.env.CASHFREE_APP_ID || !process.env.CASHFREE_SECRET_KEY) {
+      console.error('Cashfree credentials are not configured on the server.');
       return NextResponse.json({ error: 'Payment gateway credentials are not configured on the server.' }, { status: 500 });
     }
 
-
     const orderId = `order_${Date.now()}`;
     
-    // The request body for Cashfree API
+    // 3. Construct the request body for Cashfree API
     const requestBody = {
       order_id: orderId,
       order_amount: Number(item.price),
@@ -28,7 +31,7 @@ export async function POST(req: NextRequest) {
       customer_details: {
         customer_id: userId || `user_test_${Date.now()}`,
         customer_email: userEmail || 'default-email@example.com',
-        customer_phone: userPhone || "9999999999", // Default phone number as per Cashfree docs
+        customer_phone: userPhone || "9999999999",
         customer_name: userName || 'Test User',
       },
        order_meta: {
@@ -37,7 +40,7 @@ export async function POST(req: NextRequest) {
       },
     };
 
-    // Making the API call to Cashfree's production server
+    // 4. Make the API call to Cashfree's production server
     const response = await fetch("https://api.cashfree.com/pg/orders", {
         method: 'POST',
         headers: {
@@ -47,24 +50,30 @@ export async function POST(req: NextRequest) {
             'x-api-version': '2023-08-01',
         },
         body: JSON.stringify(requestBody),
+        // @ts-ignore - This is a valid option for Node.js fetch to disable keep-alive
+        agent: new http.Agent({ keepAlive: false }),
+        // @ts-ignore - This is necessary for undici (Next.js's fetch implementation)
+        duplex: 'half',
     });
 
     const responseData = await response.json();
 
-    // If the response from Cashfree is not okay, forward the error
+    // 5. Handle the response from Cashfree
     if (!response.ok) {
         console.error('Cashfree API Error:', responseData);
         const errorMessage = responseData.message || 'Failed to create order with Cashfree';
         return NextResponse.json({ error: errorMessage }, { status: response.status });
     }
     
+    // 6. Send the successful session ID back to the client
     return NextResponse.json({
       payment_session_id: responseData.payment_session_id,
     });
 
   } catch (error: any) {
-    // Catch any other server-side errors
+    // Catch any other server-side errors (e.g., network issues, JSON parsing errors)
     console.error('Order creation API error:', error);
+    // Provide a more generic but helpful error message to the client
     return NextResponse.json({ error: error.message || 'An unknown server error occurred.' }, { status: 500 });
   }
 }
