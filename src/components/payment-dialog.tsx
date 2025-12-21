@@ -17,6 +17,7 @@ import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import type { User as AppUser } from '@/lib/types';
+import { useCashfree } from '@/hooks/use-cashfree'; // Import the new hook
 
 interface PaymentDialogProps {
   isOpen: boolean;
@@ -37,15 +38,22 @@ export default function PaymentDialog({ isOpen, setIsOpen, item, itemType }: Pay
     const firestore = useFirestore();
     const { toast } = useToast();
     const [isProcessing, setIsProcessing] = useState(false);
+    const { isReady: isCashfreeReady, error: cashfreeError } = useCashfree(); // Use the hook
 
     const userDocRef = useMemoFirebase(() => user ? doc(firestore, 'users', user.uid) : null, [firestore, user]);
     const { data: appUser } = useDoc<AppUser>(userDocRef);
 
+    useEffect(() => {
+        if (cashfreeError) {
+            toast({ variant: 'destructive', title: 'त्रुटि', description: cashfreeError });
+        }
+    }, [cashfreeError, toast]);
+
     const handlePayment = async () => {
         setIsProcessing(true);
 
-        if (typeof window === "undefined" || !window.cashfree) {
-            toast({ variant: 'destructive', title: 'त्रुटि', description: 'कैशफ्री पेमेंट SDK लोड नहीं हुई। कृपया पेज को रीफ्रेश करें।' });
+        if (!isCashfreeReady) {
+            toast({ variant: 'destructive', title: 'त्रुटि', description: 'कैशफ्री पेमेंट SDK लोड नहीं हुई। कृपया पुनः प्रयास करें।' });
             setIsProcessing(false);
             return;
         }
@@ -63,8 +71,8 @@ export default function PaymentDialog({ isOpen, setIsOpen, item, itemType }: Pay
                 body: JSON.stringify({
                     userId: user.uid,
                     userName: appUser?.fullName || user.displayName || 'Guest User',
-                    userEmail: user.email, // Always use the primary email from auth
-                    userPhone: appUser?.mobileNumber || '9999999999', // Provide a fallback
+                    userEmail: user.email,
+                    userPhone: appUser?.mobileNumber || '9999999999',
                     item: { ...item, price: item.price || 0 },
                 })
             });
@@ -81,7 +89,6 @@ export default function PaymentDialog({ isOpen, setIsOpen, item, itemType }: Pay
                 throw new Error('सर्वर से अमान्य भुगतान सत्र डेटा।');
             }
 
-            // Create pending payment record in Firestore
             const paymentRef = doc(firestore, 'payments', order_id);
             await setDoc(paymentRef, {
                 userId: user.uid,
@@ -93,7 +100,6 @@ export default function PaymentDialog({ isOpen, setIsOpen, item, itemType }: Pay
                 createdAt: serverTimestamp(),
             });
 
-            // Redirect to Cashfree
             let cashfree = new window.cashfree.Cashfree(payment_session_id);
             cashfree.redirect();
 
@@ -104,6 +110,7 @@ export default function PaymentDialog({ isOpen, setIsOpen, item, itemType }: Pay
         }
     };
 
+    const isButtonDisabled = isProcessing || isUserLoading || !isCashfreeReady;
 
     return (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -124,8 +131,8 @@ export default function PaymentDialog({ isOpen, setIsOpen, item, itemType }: Pay
                 </div>
                 
                 <DialogFooter className="flex flex-col gap-2">
-                    <Button onClick={handlePayment} disabled={isProcessing || isUserLoading} className="w-full h-12 text-lg">
-                        {(isProcessing || isUserLoading) ? <LoaderCircle className="animate-spin" /> : `₹${item.price} का भुगतान करें`}
+                    <Button onClick={handlePayment} disabled={isButtonDisabled} className="w-full h-12 text-lg">
+                        {isProcessing ? <LoaderCircle className="animate-spin" /> : !isCashfreeReady ? <><LoaderCircle className="animate-spin mr-2" />SDK लोड हो रहा है...</> : `₹${item.price} का भुगतान करें`}
                     </Button>
                     <DialogClose asChild>
                         <Button variant="ghost" className="w-full">रद्द करें</Button>
