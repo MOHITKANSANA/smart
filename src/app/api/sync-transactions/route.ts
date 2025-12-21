@@ -8,8 +8,10 @@ import { getFirestore as getAdminFirestore, FieldValue } from 'firebase-admin/fi
 let adminApp: App;
 if (!getApps().length) {
     try {
-        const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY!);
-        adminApp = initializeApp({ credential: cert(serviceAccount) });
+        if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
+            const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
+            adminApp = initializeApp({ credential: cert(serviceAccount) });
+        }
     } catch (error) {
         console.error("Firebase Admin initialization error:", error);
     }
@@ -17,7 +19,7 @@ if (!getApps().length) {
     adminApp = getApps()[0];
 }
 
-const adminFirestore = getAdminFirestore(adminApp);
+const adminFirestore = adminApp ? getAdminFirestore(adminApp) : null;
 
 async function fetchAllSuccessfulOrdersFromCashfree() {
     const fromDate = new Date();
@@ -28,33 +30,63 @@ async function fetchAllSuccessfulOrdersFromCashfree() {
     toDate.setDate(toDate.getDate() + 1);
     const to = toDate.toISOString().split('T')[0];
     
-    const url = `https://api.cashfree.com/pg/orders?from=${from}&to=${to}`;
-    
-    const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-            'Accept': 'application/json',
-            'x-client-id': process.env.CASHFREE_APP_ID!,
-            'x-client-secret': process.env.CASHFREE_SECRET_KEY!,
-            'x-api-version': '2023-08-01',
-        },
-    });
+    let allPaidOrders: any[] = [];
+    let nextCursor: string | null = null;
+    let hasMore = true;
 
-    if (!response.ok) {
-        const errorData = await response.json();
-        console.error('Cashfree API Error while fetching orders:', errorData);
-        throw new Error('Failed to fetch orders from Cashfree.');
-    }
+    do {
+        const url = new URL('https://api.cashfree.com/pg/orders');
+        url.searchParams.append('from', from);
+        url.searchParams.append('to', to);
+        url.searchParams.append('count', '100'); // Fetch 100 orders per page
+        if (nextCursor) {
+            url.searchParams.append('cursor', nextCursor);
+        }
+        
+        const response = await fetch(url.toString(), {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json',
+                'x-client-id': process.env.CASHFREE_APP_ID!,
+                'x-client-secret': process.env.CASHFREE_SECRET_KEY!,
+                'x-api-version': '2023-08-01',
+            },
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            console.error('Cashfree API Error while fetching orders:', errorData);
+            throw new Error(`Failed to fetch orders from Cashfree: ${errorData.message}`);
+        }
+        
+        const data = await response.json();
+        const paidOrders = data.filter((order: any) => order.order_status === 'PAID');
+        allPaidOrders.push(...paidOrders);
+
+        // Check if there's a next page
+        const linkHeader = response.headers.get('link');
+        if (linkHeader && linkHeader.includes('rel="next"')) {
+             const cursorMatch = linkHeader.match(/cursor=([^>]+)/);
+             if (cursorMatch && cursorMatch[1]) {
+                 nextCursor = cursorMatch[1];
+                 hasMore = true;
+             } else {
+                 hasMore = false;
+             }
+        } else {
+            hasMore = false;
+        }
+
+    } while (hasMore);
     
-    const allOrders = await response.json();
-    return allOrders.filter((order: any) => order.order_status === 'PAID');
+    return allPaidOrders;
 }
 
 
 export async function POST(req: NextRequest) {
     try {
         if (!adminFirestore) {
-            throw new Error("Admin Firestore not initialized");
+            return NextResponse.json({ error: "Firestore Admin is not initialized." }, { status: 500 });
         }
         
         const successfulOrders = await fetchAllSuccessfulOrdersFromCashfree();
@@ -101,7 +133,7 @@ export async function POST(req: NextRequest) {
             await batch.commit();
         }
 
-        return NextResponse.json({ message: 'Sync complete.', syncedCount });
+        return NextResponse.json({ message: `Sync complete. ${syncedCount} new transactions processed.`, syncedCount });
 
     } catch (error: any) {
         console.error('Error during transaction sync:', error);
