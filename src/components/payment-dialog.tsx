@@ -18,7 +18,6 @@ import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import type { User as AppUser } from '@/lib/types';
-import { useCashfree } from '@/hooks/use-cashfree';
 
 interface PaymentDialogProps {
   isOpen: boolean;
@@ -32,8 +31,8 @@ export default function PaymentDialog({ isOpen, setIsOpen, item, itemType }: Pay
     const firestore = useFirestore();
     const { toast } = useToast();
     const [isProcessing, setIsProcessing] = useState(false);
-    const { isReady: isSdkReady } = useCashfree();
-
+    
+    // We still fetch the appUser for details, but the payment will not wait for it.
     const userDocRef = useMemoFirebase(() => user ? doc(firestore, 'users', user.uid) : null, [firestore, user]);
     const { data: appUser } = useDoc<AppUser>(userDocRef);
 
@@ -42,7 +41,7 @@ export default function PaymentDialog({ isOpen, setIsOpen, item, itemType }: Pay
         try {
             console.log("Payment started for item:", item.name);
 
-            if (!isSdkReady) {
+            if (typeof window === "undefined" || !window.Cashfree) {
                 toast({ variant: 'destructive', title: 'त्रुटि', description: 'कैशफ्री SDK लोड नहीं हुई है, कृपया कुछ क्षण प्रतीक्षा करें।' });
                 setIsProcessing(false);
                 return;
@@ -51,7 +50,7 @@ export default function PaymentDialog({ isOpen, setIsOpen, item, itemType }: Pay
             const isTestPayment = itemType === 'test';
             
             if (!user && !isTestPayment) {
-                toast({ variant: 'destructive', title: 'त्रुटि', description: 'उपयोगकर्ता लॉग इन नहीं है।' });
+                toast({ variant: 'destructive', title: 'त्रुटि-', description: 'उपयोगकर्ता लॉग इन नहीं है।' });
                 setIsProcessing(false);
                 return;
             }
@@ -60,10 +59,11 @@ export default function PaymentDialog({ isOpen, setIsOpen, item, itemType }: Pay
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
+                    // The API now handles defaults, so we don't need to wait for appUser
                     userId: isTestPayment ? 'test_user_001' : user!.uid,
                     userName: isTestPayment ? 'Test User' : (appUser?.fullName || user?.email),
                     userEmail: isTestPayment ? 'test@example.com' : user!.email,
-                    userPhone: appUser?.mobileNumber,
+                    userPhone: appUser?.mobileNumber, // API will use a default if this is null
                     item: { id: item.id, name: item.name, price: item.price || 0 },
                     itemType: itemType,
                 })
@@ -116,16 +116,11 @@ export default function PaymentDialog({ isOpen, setIsOpen, item, itemType }: Pay
                 <DialogFooter className="flex flex-col gap-2">
                     <Button 
                         onClick={handlePayment} 
-                        disabled={isProcessing || !isSdkReady} 
+                        disabled={isProcessing} 
                         className="w-full h-12 text-lg"
                     >
                         {isProcessing ? (
                             <LoaderCircle className="animate-spin" />
-                        ) : !isSdkReady ? (
-                             <>
-                                <LoaderCircle className="animate-spin mr-2" />
-                                SDK लोड हो रहा है...
-                             </>
                         ) : (
                              `₹${item.price} का भुगतान करें`
                         )}
@@ -138,5 +133,3 @@ export default function PaymentDialog({ isOpen, setIsOpen, item, itemType }: Pay
         </Dialog>
     );
 }
-
-    

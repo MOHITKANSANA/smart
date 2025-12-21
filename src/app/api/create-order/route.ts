@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
           customer_details: {
             customer_id: userId,
             customer_email: userEmail || 'default-email@example.com',
-            customer_phone: userPhone || "9999999999",
+            customer_phone: userPhone || "9999999999", // Use a default if phone is not provided
             customer_name: userName || 'User',
           },
           order_meta: {
@@ -53,6 +53,7 @@ export async function POST(req: NextRequest) {
         const { initializeApp, getApps, cert } = await import('firebase-admin/app');
 
         if (getApps().length === 0) {
+            // This will use the GOOGLE_APPLICATION_CREDENTIALS env var in production.
             initializeApp();
         }
         
@@ -78,5 +79,3 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: error.message || 'Failed to create payment session' }, { status: 500 });
   }
 }
-
-    
