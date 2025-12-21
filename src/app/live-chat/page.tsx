@@ -67,15 +67,9 @@ export default function LiveChatPage() {
         setIsSending(true);
 
         try {
-            // Fetch user profile data on demand to create/update chat session
             const userDocRef = doc(firestore, 'users', user.uid);
             const userDocSnap = await getDoc(userDocRef);
-
-            if (!userDocSnap.exists()) {
-                throw new Error("आपका प्रोफ़ाइल नहीं मिला।");
-            }
-            const appUser = userDocSnap.data() as AppUser;
-
+            
             const messageData = {
                 text: newMessage,
                 senderId: user.uid,
@@ -84,8 +78,8 @@ export default function LiveChatPage() {
 
             const sessionData = {
                 id: user.uid,
-                userName: appUser.fullName,
-                userEmail: appUser.email,
+                userName: userDocSnap.exists() ? userDocSnap.data().fullName : user.displayName || "अज्ञात उपयोगकर्ता",
+                userEmail: userDocSnap.exists() ? userDocSnap.data().email : user.email || "कोई ईमेल नहीं",
                 lastMessage: newMessage,
                 lastMessageAt: serverTimestamp(),
                 isReadByAdmin: false,
