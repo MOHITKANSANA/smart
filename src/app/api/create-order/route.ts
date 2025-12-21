@@ -6,7 +6,7 @@ import { randomUUID } from 'crypto';
 
 Cashfree.XClientId = process.env.CASHFREE_APP_ID!;
 Cashfree.XClientSecret = process.env.CASHFREE_SECRET_KEY!;
-Cashfree.XEnvironment = Cashfree.Environment.PRODUCTION;
+Cashfree.XEnvironment = Cashfree.Environment.SANDBOX; // Changed to SANDBOX for testing
 
 export async function POST(req: NextRequest) {
   try {
@@ -39,6 +39,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(response.data);
   } catch (error: any) {
     console.error('Cashfree order creation error:', error);
-    return NextResponse.json({ error: error.message || 'Failed to create payment session' }, { status: 500 });
+    // Respond with a more structured error
+    const errorMessage = error.response?.data?.message || error.message || 'Failed to create payment session';
+    return NextResponse.json({ error: errorMessage }, { status: error.response?.status || 500 });
   }
 }

@@ -69,12 +69,17 @@ export default function PaymentDialog({ isOpen, setIsOpen, item, itemType }: Pay
                 })
             });
 
+            const responseData = await response.json();
+
             if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || 'Failed to create order.');
+                throw new Error(responseData.error || 'Failed to create order.');
             }
 
-            const { payment_session_id, order_id } = await response.json();
+            const { payment_session_id, order_id } = responseData;
+
+            if (!payment_session_id || !order_id) {
+                throw new Error('Invalid payment session data from server.');
+            }
 
             // Create pending payment record in Firestore
             const paymentRef = doc(firestore, 'payments', order_id);
@@ -94,7 +99,7 @@ export default function PaymentDialog({ isOpen, setIsOpen, item, itemType }: Pay
 
         } catch (error: any) {
             console.error('Payment initiation error:', error);
-            toast({ variant: 'destructive', title: 'भुगतान त्रुटि', description: error.message });
+            toast({ variant: 'destructive', title: 'भुगतान त्रुटि', description: `भुगतान सत्र बनाने में विफल: ${error.message}` });
             setIsLoading(false);
         }
     };
