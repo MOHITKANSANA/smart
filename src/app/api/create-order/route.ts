@@ -3,7 +3,6 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { getSdks } from '@/firebase'; // Assuming a server-compatible way to init admin
 import { initializeApp, getApps, App } from "firebase-admin/app";
 import { getFirestore as getAdminFirestore } from 'firebase-admin/firestore';
 
@@ -42,7 +41,7 @@ export async function POST(req: NextRequest) {
     // 3. Construct the request body for Cashfree API
     const requestBody = {
       order_id: orderId,
-      order_amount: Number(item.price),
+      order_amount: Number(item.price), // Using the actual item price from the request
       order_currency: "INR",
       order_note: `Payment for ${item.name}`,
       customer_details: {
@@ -55,6 +54,11 @@ export async function POST(req: NextRequest) {
         return_url: returnUrl,
         notify_url: `${baseUrl}/api/payment-status`, // Optional: for server-to-server webhooks
       },
+      order_tags: {
+        itemId: item.id,
+        itemType: itemType,
+        userId: userId,
+      }
     };
 
     // 4. Create a PENDING payment record in Firestore
