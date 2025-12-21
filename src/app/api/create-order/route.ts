@@ -3,7 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { initializeApp, getApps, App, cert } from "firebase-admin/app";
-import { getFirestore as getAdminFirestore, doc, setDoc } from 'firebase-admin/firestore';
+import { getFirestore as getAdminFirestore, Timestamp } from 'firebase-admin/firestore';
 
 // This is the server-side API route that creates a payment order with Cashfree.
 export async function POST(req: NextRequest) {
@@ -25,8 +25,6 @@ export async function POST(req: NextRequest) {
   }
 
   const adminFirestore = getAdminFirestore(adminApp);
-  const { serverTimestamp } = await import('firebase-admin/firestore');
-
 
   try {
     const body = await req.json();
@@ -45,7 +43,7 @@ export async function POST(req: NextRequest) {
 
     const orderId = `order_${Date.now()}`;
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://example.com';
-    const returnUrl = `${baseUrl}/api/payment-status`;
+    const returnUrl = `${baseUrl}/api/payment-status?order_id=${orderId}`;
     
     // 3. Construct the request body for Cashfree API
     const requestBody = {
@@ -70,16 +68,16 @@ export async function POST(req: NextRequest) {
       }
     };
 
-    // 4. Create a PENDING payment record in Firestore
-    const paymentRef = doc(adminFirestore, 'payments', orderId);
-    await setDoc(paymentRef, {
+    // 4. Create a PENDING payment record in Firestore using classic namespaced syntax
+    const paymentRef = adminFirestore.doc(`payments/${orderId}`);
+    await paymentRef.set({
         userId: userId,
         itemId: item.id,
         itemType: itemType,
         amount: Number(item.price),
         orderId: orderId,
         status: 'PENDING',
-        createdAt: serverTimestamp(),
+        createdAt: Timestamp.now(),
     });
 
     // 5. Make the API call to Cashfree's production server
@@ -100,7 +98,7 @@ export async function POST(req: NextRequest) {
     if (!response.ok) {
         console.error('Cashfree API Error:', responseData);
         const errorMessage = responseData.message || 'Failed to create order with Cashfree';
-        await setDoc(paymentRef, { status: 'FAILED', error: errorMessage }, { merge: true });
+        await paymentRef.set({ status: 'FAILED', error: errorMessage }, { merge: true });
         return NextResponse.json({ error: errorMessage }, { status: response.status });
     }
     
