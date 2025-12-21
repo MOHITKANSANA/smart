@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, Suspense } from 'react';
@@ -20,7 +21,7 @@ const pdfGradients = [
     'from-violet-600 to-purple-700',
 ];
 
-function PdfItem({ pdf, index, onPay, hasAccess }: { pdf: PdfDocument; index: number; onPay: (pdf: PdfDocument) => void, hasAccess: boolean }) {
+function PdfItem({ pdf, index, onPay, hasAccess, isUserLoading }: { pdf: PdfDocument; index: number; onPay: (pdf: PdfDocument) => void, hasAccess: boolean, isUserLoading: boolean }) {
     const router = useRouter();
     const gradientClass = `bg-gradient-to-r ${pdfGradients[index % pdfGradients.length]}`;
 
@@ -48,9 +49,15 @@ function PdfItem({ pdf, index, onPay, hasAccess }: { pdf: PdfDocument; index: nu
                     {hasAccess ? (
                         <span className="text-xs font-bold bg-green-500/80 px-2 py-1 rounded-md">Owned</span>
                     ) : (
-                        <Button size="sm" variant="secondary" className="bg-white/90 text-black hover:bg-white h-auto py-1 px-3">
-                            <ShoppingCart className="h-4 w-4 mr-1"/>
-                            Buy ₹{pdf.price}
+                        <Button size="sm" variant="secondary" className="bg-white/90 text-black hover:bg-white h-auto py-1 px-3" disabled={isUserLoading}>
+                            {isUserLoading ? (
+                                <LoaderCircle className="h-4 w-4 animate-spin"/>
+                            ) : (
+                                <>
+                                 <ShoppingCart className="h-4 w-4 mr-1"/>
+                                 Buy ₹{pdf.price}
+                                </>
+                            )}
                         </Button>
                     )}
                 </div>
@@ -74,7 +81,7 @@ function SubFolderDetailContent() {
     const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
 
     const userDocRef = useMemoFirebase(() => user ? doc(firestore, 'users', user.uid) : null, [firestore, user]);
-    const { data: appUser } = useDoc<AppUser>(userDocRef);
+    const { data: appUser, isLoading: isUserLoading } = useDoc<AppUser>(userDocRef);
 
     const subFolderRef = useMemoFirebase(() => {
         if (!tabId || !subFolderId) return null;
@@ -142,6 +149,7 @@ function SubFolderDetailContent() {
                             index={index}
                             onPay={handlePay}
                             hasAccess={appUser?.purchasedItems?.includes(pdf.id) ?? false}
+                            isUserLoading={isUserLoading}
                            />
                         ))}
                     </div>

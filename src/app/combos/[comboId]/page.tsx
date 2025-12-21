@@ -57,7 +57,7 @@ export default function ComboDetailPage() {
     const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
     
     const userDocRef = useMemoFirebase(() => user ? doc(firestore, 'users', user.uid) : null, [firestore, user]);
-    const { data: appUser } = useDoc<AppUser>(userDocRef);
+    const { data: appUser, isLoading: isUserLoading } = useDoc<AppUser>(userDocRef);
 
     const comboRef = useMemoFirebase(() => doc(firestore, 'combos', comboId), [firestore, comboId]);
     const { data: combo, isLoading: isLoadingCombo } = useDoc<Combo>(comboRef);
@@ -68,7 +68,7 @@ export default function ComboDetailPage() {
         return appUser.purchasedItems?.includes(combo.id) ?? false;
     }, [combo, appUser]);
     
-    const isLoading = isLoadingCombo;
+    const isLoading = isLoadingCombo || isUserLoading;
 
     if (isLoading) {
         return (
@@ -116,8 +116,13 @@ export default function ComboDetailPage() {
                                 <CardTitle className="text-yellow-200">यह एक पेड कॉम्बो है</CardTitle>
                                 <CardDescription className="text-yellow-300/80">इस कॉम्बो के सभी PDFs को एक्सेस करने के लिए अभी खरीदें।</CardDescription>
                             </div>
-                            <Button onClick={handleBuyNow} className="bg-gradient-to-r from-yellow-400 to-orange-500 text-black font-bold shadow-lg w-full sm:w-auto">
-                                <ShoppingCart className="mr-2 h-4 w-4" /> अभी खरीदें ₹{combo.price}
+                            <Button onClick={handleBuyNow} className="bg-gradient-to-r from-yellow-400 to-orange-500 text-black font-bold shadow-lg w-full sm:w-auto" disabled={isUserLoading}>
+                                {isUserLoading ? (
+                                    <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
+                                ) : (
+                                    <ShoppingCart className="mr-2 h-4 w-4" />
+                                )}
+                                 अभी खरीदें ₹{combo.price}
                             </Button>
                         </CardContent>
                     </Card>
