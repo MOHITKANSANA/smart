@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState } from 'react';
@@ -17,6 +18,12 @@ import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 
+declare global {
+  interface Window {
+    Cashfree: any;
+  }
+}
+
 interface PaymentDialogProps {
   isOpen: boolean;
   setIsOpen: (isOpen: boolean) => void;
@@ -35,8 +42,17 @@ export default function PaymentDialog({ isOpen, setIsOpen, item, itemType }: Pay
 
     const handlePayment = async () => {
         setIsProcessing(true);
-
         try {
+            if (typeof window.Cashfree === 'undefined') {
+                toast({
+                    variant: 'destructive',
+                    title: 'भुगतान में समस्या',
+                    description: 'पेमेंट गेटवे लोड नहीं हो सका। कृपया पृष्ठ को रीफ़्रेश करें और पुनः प्रयास करें।',
+                });
+                setIsProcessing(false);
+                return;
+            }
+
             const res = await fetch("/api/create-order", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -47,7 +63,6 @@ export default function PaymentDialog({ isOpen, setIsOpen, item, itemType }: Pay
                     userPhone: appUser?.mobileNumber || '9999999999',
                     item: { id: item.id, name: item.name, price: item.price || 0 },
                     itemType: itemType,
-                    returnUrl: `${window.location.origin}/home?payment_status=success&order_id={order_id}`
                 }),
             });
 
@@ -56,23 +71,31 @@ export default function PaymentDialog({ isOpen, setIsOpen, item, itemType }: Pay
             if (!res.ok) {
                 throw new Error(data.error || 'सर्वर से ऑर्डर बनाने में विफल।');
             }
-
-            if (data.payment_url) {
-                window.location.href = data.payment_url;
-            } else {
-                throw new Error('पेमेंट लिंक प्राप्त नहीं हुआ।');
+            
+            if (!data.payment_session_id) {
+                throw new Error('सर्वर से payment_session_id नहीं मिला।');
             }
+
+            const cashfree = new window.Cashfree({
+                mode: "production", // Or "sandbox"
+            });
+            
+            cashfree.checkout({
+                paymentSessionId: data.payment_session_id,
+                redirectTarget: "_self",
+            });
+
         } catch (error: any) {
-            console.error("Payment Failed:", error);
+            console.error("Payment Failed:", error.message);
             toast({
                 variant: 'destructive',
                 title: 'भुगतान में समस्या आई',
                 description: error.message || 'एक अज्ञात त्रुटि हुई।',
             });
+        } finally {
             setIsProcessing(false);
         }
     };
-
 
     return (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>

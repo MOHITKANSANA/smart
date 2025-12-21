@@ -1,3 +1,4 @@
+
 'use server';
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -6,7 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { userId, userEmail, userPhone, userName, item, itemType, returnUrl } = body;
+    const { userId, userEmail, userPhone, userName, item, itemType } = body;
 
     // 1. Validate essential item information from our client
     if (!item || typeof item.price !== 'number' || !item.name) {
@@ -20,6 +21,7 @@ export async function POST(req: NextRequest) {
     }
 
     const orderId = `order_${Date.now()}`;
+    const returnUrl = `https://example.com/payment-status?order_id=${orderId}`; // Must be HTTPS
     
     // 3. Construct the request body for Cashfree API
     const requestBody = {
@@ -34,7 +36,7 @@ export async function POST(req: NextRequest) {
         customer_name: userName || 'Test User',
       },
        order_meta: {
-        return_url: returnUrl,
+        return_url: returnUrl, // Use the secure HTTPS URL
       },
     };
 
@@ -59,9 +61,12 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: errorMessage }, { status: response.status });
     }
     
-    // 6. Send the successful payment URL back to the client
+    // In a real application, you would save the pending payment to your database here.
+    // e.g., createPaymentRecord({ userId, itemId: item.id, orderId, status: 'PENDING' });
+
+    // 6. Send the successful payment session ID back to the client
     return NextResponse.json({
-      payment_url: responseData.payment_url,
+      payment_session_id: responseData.payment_session_id,
     });
 
   } catch (error: any) {
