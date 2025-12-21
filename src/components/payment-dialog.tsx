@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState } from 'react';
@@ -53,7 +52,7 @@ export default function PaymentDialog({ isOpen, setIsOpen, item, itemType }: Pay
                   userId: user?.uid,
                   userName: appUser?.fullName || user?.email,
                   userEmail: user?.email,
-                  userPhone: appUser?.mobileNumber, // Can be undefined, API will handle default
+                  userPhone: appUser?.mobileNumber,
                   item: { id: item.id, name: item.name, price: item.price || 0 },
                   itemType: itemType,
               }),

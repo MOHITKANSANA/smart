@@ -26,10 +26,10 @@ export async function POST(req: NextRequest) {
       order_currency: "INR",
       order_note: `Payment for ${item.name}`,
       customer_details: {
-        customer_id: userId || `user_${Date.now()}`,
+        customer_id: userId || `user_test_${Date.now()}`,
         customer_email: userEmail || 'default-email@example.com',
         customer_phone: userPhone || "9999999999", // Default phone number as per Cashfree docs
-        customer_name: userName || 'User',
+        customer_name: userName || 'Test User',
       },
        order_meta: {
         // We handle the return URL on the client-side after payment for better UX.
@@ -54,10 +54,10 @@ export async function POST(req: NextRequest) {
     // If the response from Cashfree is not okay, forward the error
     if (!response.ok) {
         console.error('Cashfree API Error:', responseData);
-        return NextResponse.json({ error: responseData.message || 'Failed to create order with Cashfree' }, { status: response.status });
+        const errorMessage = responseData.message || 'Failed to create order with Cashfree';
+        return NextResponse.json({ error: errorMessage }, { status: response.status });
     }
     
-    // Instead of sending the session_id, we send the direct payment link
     return NextResponse.json({
       payment_session_id: responseData.payment_session_id,
     });
