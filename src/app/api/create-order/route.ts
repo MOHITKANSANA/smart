@@ -44,7 +44,6 @@ export async function POST(req: NextRequest) {
 
     const orderId = `order_${Date.now()}`;
     
-    // Using a hardcoded production URL to satisfy Cashfree's validation requirements
     const returnUrl = `https://pcsnote.netlify.app/api/payment-status`;
     
     // 3. Create a pending payment record in Firestore (Safely)
