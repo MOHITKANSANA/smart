@@ -27,6 +27,8 @@ export async function POST(req: NextRequest) {
   }
   adminFirestore = getAdminFirestore(adminApp);
 
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 30000); // 30-second timeout
 
   try {
     const body = await req.json();
@@ -95,8 +97,11 @@ export async function POST(req: NextRequest) {
         // @ts-ignore
         agent: new http.Agent({ keepAlive: false }),
         // @ts-ignore
-        duplex: 'half'
+        duplex: 'half',
+        signal: controller.signal, // Add AbortSignal
     });
+
+    clearTimeout(timeoutId); // Clear the timeout if the request completes
 
     const responseData = await response.json();
 
@@ -114,6 +119,11 @@ export async function POST(req: NextRequest) {
     });
 
   } catch (error: any) {
+    clearTimeout(timeoutId); // Clear timeout on error as well
+    if (error.name === 'AbortError') {
+      console.error('Cashfree API request timed out.');
+      return NextResponse.json({ error: 'Payment gateway timed out. Please try again.' }, { status: 504 });
+    }
     console.error('Order creation API error:', error);
     return NextResponse.json({ error: error.message || 'An unknown server error occurred.' }, { status: 500 });
   }
