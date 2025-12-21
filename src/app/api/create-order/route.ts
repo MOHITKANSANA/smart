@@ -2,31 +2,11 @@
 'use server';
 
 import { NextRequest, NextResponse } from 'next/server';
-import { initializeApp, getApps, App, cert } from "firebase-admin/app";
-import { getFirestore as getAdminFirestore, Timestamp } from 'firebase-admin/firestore';
 import http from 'http';
 
 // This is the server-side API route that creates a payment order with Cashfree.
 export async function POST(req: NextRequest) {
-  let adminApp: App;
-  let adminFirestore: ReturnType<typeof getAdminFirestore>;
-
-  // Reliably initialize the Firebase Admin SDK for every request if not already initialized.
-  if (!getApps().length) {
-      if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
-          const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
-          adminApp = initializeApp({
-              credential: cert(serviceAccount)
-          });
-      } else {
-          console.error("FATAL: FIREBASE_SERVICE_ACCOUNT_KEY environment variable is not set.");
-          return NextResponse.json({ error: 'Server configuration error: Firebase credentials missing.' }, { status: 500 });
-      }
-  } else {
-      adminApp = getApps()[0];
-  }
-  adminFirestore = getAdminFirestore(adminApp);
-
+  
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 30000); // 30-second timeout
 
@@ -72,7 +52,9 @@ export async function POST(req: NextRequest) {
       }
     };
 
-    // 4. Create a PENDING payment record in Firestore using classic namespaced syntax
+    // 4. Temporarily disable Firestore write to isolate the issue.
+    // We will re-enable this in a separate step.
+    /*
     const paymentRef = adminFirestore.doc(`payments/${orderId}`);
     await paymentRef.set({
         userId: userId,
@@ -83,6 +65,7 @@ export async function POST(req: NextRequest) {
         status: 'PENDING',
         createdAt: Timestamp.now(),
     });
+    */
 
     // 5. Make the API call to Cashfree's production server
     const response = await fetch("https://api.cashfree.com/pg/orders", {
@@ -109,7 +92,7 @@ export async function POST(req: NextRequest) {
     if (!response.ok) {
         console.error('Cashfree API Error:', responseData);
         const errorMessage = responseData.message || 'Failed to create order with Cashfree';
-        await paymentRef.set({ status: 'FAILED', error: errorMessage }, { merge: true });
+        // await paymentRef.set({ status: 'FAILED', error: errorMessage }, { merge: true });
         return NextResponse.json({ error: errorMessage }, { status: response.status });
     }
     
