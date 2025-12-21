@@ -3,13 +3,22 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { initializeApp, getApps, App } from "firebase-admin/app";
+import { initializeApp, getApps, App, cert } from "firebase-admin/app";
 import { getFirestore as getAdminFirestore } from 'firebase-admin/firestore';
 
 // Initialize Firebase Admin SDK
 let adminApp: App;
 if (!getApps().length) {
-    adminApp = initializeApp();
+    // Check if running in a serverless environment and use service account from env vars
+    if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
+        const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
+        adminApp = initializeApp({
+            credential: cert(serviceAccount)
+        });
+    } else {
+        // Fallback for local development or environments without the specific env var
+        adminApp = initializeApp();
+    }
 } else {
     adminApp = getApps()[0];
 }
