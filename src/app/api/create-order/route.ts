@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from 'next/server';
 // This is the server-side API route that creates a payment order with Cashfree.
 export async function POST(req: NextRequest) {
   try {
+    // Make sure Firebase Admin is initialized
     const body = await req.json();
     const { userId, userEmail, userPhone, userName, item, itemType } = body;
 
@@ -21,8 +22,7 @@ export async function POST(req: NextRequest) {
     }
 
     const orderId = `order_${Date.now()}`;
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://pcsnote.netlify.app'; // Use production URL as a safe fallback
-    const returnUrl = `${baseUrl}/api/payment-status?order_id=${orderId}`;
+    const returnUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://pcsnote.netlify.app'}/api/payment-status`;
     
     // 3. Construct the request body for Cashfree API
     const requestBody = {
