@@ -17,7 +17,6 @@ import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import type { User as AppUser } from '@/lib/types';
-import { useCashfree } from '@/hooks/use-cashfree'; // Import the new hook
 
 interface PaymentDialogProps {
   isOpen: boolean;
@@ -28,80 +27,68 @@ interface PaymentDialogProps {
 
 declare global {
     interface Window {
-        cashfree: any;
+        Cashfree: any;
     }
 }
 
 
 export default function PaymentDialog({ isOpen, setIsOpen, item, itemType }: PaymentDialogProps) {
-    const { user, isUserLoading } = useUser();
+    const { user } = useUser();
     const firestore = useFirestore();
     const { toast } = useToast();
     const [isProcessing, setIsProcessing] = useState(false);
-    const { isReady: isCashfreeReady, error: cashfreeError } = useCashfree(); // Use the hook
 
     const userDocRef = useMemoFirebase(() => user ? doc(firestore, 'users', user.uid) : null, [firestore, user]);
     const { data: appUser } = useDoc<AppUser>(userDocRef);
 
-    useEffect(() => {
-        if (cashfreeError) {
-            toast({ variant: 'destructive', title: 'त्रुटि', description: cashfreeError });
-        }
-    }, [cashfreeError, toast]);
-
     const handlePayment = async () => {
         setIsProcessing(true);
-
-        if (!isCashfreeReady) {
-            toast({ variant: 'destructive', title: 'त्रुटि', description: 'कैशफ्री पेमेंट SDK लोड नहीं हुई। कृपया पुनः प्रयास करें।' });
-            setIsProcessing(false);
-            return;
-        }
-
-        if (!user) {
-            toast({ variant: 'destructive', title: 'त्रुटि', description: 'भुगतान करने से पहले कृपया लॉगिन करें।' });
-            setIsProcessing(false);
-            return;
-        }
-
         try {
+            console.log("Payment started for item:", item.name);
+
+            if (typeof window === "undefined" || !window.Cashfree) {
+                toast({ variant: 'destructive', title: 'त्रुटि', description: 'Cashfree SDK लोड नहीं हुई। कृपया पेज को रीफ़्रेश करें।' });
+                setIsProcessing(false);
+                return;
+            }
+            
+            if (!user || !appUser) {
+                toast({ variant: 'destructive', title: 'त्रुटि', description: 'उपयोगकर्ता डेटा लोड नहीं हुआ। कृपया पुनः प्रयास करें।' });
+                setIsProcessing(false);
+                return;
+            }
+
             const response = await fetch('/api/create-order', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     userId: user.uid,
-                    userName: appUser?.fullName || user.displayName || 'Guest User',
+                    userName: appUser.fullName,
                     userEmail: user.email,
-                    userPhone: appUser?.mobileNumber || '9999999999',
-                    item: { ...item, price: item.price || 0 },
+                    userPhone: appUser.mobileNumber,
+                    item: { id: item.id, name: item.name, price: item.price || 0 },
+                    itemType: itemType,
                 })
             });
-
+            
             const responseData = await response.json();
 
             if (!response.ok) {
-                throw new Error(responseData.error || 'Failed to create order from server.');
+                throw new Error(responseData.error || 'Server से order बनाने में विफल।');
             }
 
-            const { payment_session_id, order_id } = responseData;
+            const { payment_session_id } = responseData;
 
-            if (!payment_session_id || !order_id) {
+            if (!payment_session_id) {
                 throw new Error('सर्वर से अमान्य भुगतान सत्र डेटा।');
             }
 
-            const paymentRef = doc(firestore, 'payments', order_id);
-            await setDoc(paymentRef, {
-                userId: user.uid,
-                itemId: item.id,
-                itemType: itemType,
-                amount: item.price,
-                orderId: order_id,
-                status: 'PENDING',
-                createdAt: serverTimestamp(),
-            });
+            const cashfree = new window.Cashfree(payment_session_id);
 
-            let cashfree = new window.cashfree.Cashfree(payment_session_id);
-            cashfree.redirect();
+            cashfree.checkout({
+                paymentSessionId: payment_session_id,
+                redirectTarget: "_self",
+            });
 
         } catch (error: any) {
             console.error('Payment initiation error:', error);
@@ -109,8 +96,6 @@ export default function PaymentDialog({ isOpen, setIsOpen, item, itemType }: Pay
             setIsProcessing(false);
         }
     };
-
-    const isButtonDisabled = isProcessing || isUserLoading || !isCashfreeReady;
 
     return (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -131,8 +116,8 @@ export default function PaymentDialog({ isOpen, setIsOpen, item, itemType }: Pay
                 </div>
                 
                 <DialogFooter className="flex flex-col gap-2">
-                    <Button onClick={handlePayment} disabled={isButtonDisabled} className="w-full h-12 text-lg">
-                        {isProcessing ? <LoaderCircle className="animate-spin" /> : !isCashfreeReady ? <><LoaderCircle className="animate-spin mr-2" />SDK लोड हो रहा है...</> : `₹${item.price} का भुगतान करें`}
+                    <Button onClick={handlePayment} disabled={isProcessing} className="w-full h-12 text-lg">
+                        {isProcessing ? <LoaderCircle className="animate-spin" /> : `₹${item.price} का भुगतान करें`}
                     </Button>
                     <DialogClose asChild>
                         <Button variant="ghost" className="w-full">रद्द करें</Button>

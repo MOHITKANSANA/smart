@@ -37,6 +37,7 @@ export default function RootLayout({
             <Toaster />
           </FirebaseClientProvider>
         </ThemeProvider>
+        <script src="https://sdk.cashfree.com/js/v3/cashfree.js"></script>
       </body>
     </html>
   );
