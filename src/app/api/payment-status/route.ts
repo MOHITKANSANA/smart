@@ -7,25 +7,28 @@ import { initializeApp, getApps, App, cert } from "firebase-admin/app";
 import { getFirestore as getAdminFirestore } from 'firebase-admin/firestore';
 import crypto from 'crypto';
 
-let adminApp: App;
+let adminApp: App | null = null;
+let adminFirestore: ReturnType<typeof getAdminFirestore> | null = null;
 
-if (!getApps().length) {
-    try {
-        if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
-            const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
+try {
+    if (!getApps().length) {
+        const serviceAccountKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
+        if (serviceAccountKey) {
+            const serviceAccount = JSON.parse(serviceAccountKey);
             adminApp = initializeApp({
                 credential: cert(serviceAccount)
             });
+             adminFirestore = getAdminFirestore(adminApp);
+        } else {
+             console.warn('[API Payment Status] FIREBASE_SERVICE_ACCOUNT_KEY is not set.');
         }
-    } catch (error) {
-        console.error("Firebase Admin initialization error:", error);
+    } else {
+        adminApp = getApps()[0];
+        adminFirestore = getAdminFirestore(adminApp);
     }
-} else {
-    adminApp = getApps()[0];
+} catch (error: any) {
+    console.error('[API Payment Status] Firebase Admin initialization error:', error.message);
 }
-
-
-const adminFirestore = adminApp ? getAdminFirestore(adminApp) : null;
 
 
 // Function to verify Cashfree signature
@@ -56,7 +59,7 @@ async function handleSuccessfulPayment(orderId: string, itemData: { userId: stri
         return;
     }
 
-    const { userId, itemId, itemType, amount } = itemData;
+    const { userId, itemId } = itemData;
     
     if (!userId || !itemId) {
         throw new Error(`Missing userId or itemId in payment record for order ${orderId}`);
@@ -65,17 +68,11 @@ async function handleSuccessfulPayment(orderId: string, itemData: { userId: stri
     const userRef = adminFirestore.collection('users').doc(userId);
     const batch = adminFirestore.batch();
     
-    // 1. Create or Update payment document to SUCCESS
-    batch.set(paymentRef, {
-        id: orderId,
-        userId,
-        itemId,
-        itemType,
-        amount,
+    // 1. Update payment document to SUCCESS
+    batch.update(paymentRef, {
         status: 'SUCCESS',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-    }, { merge: true });
+        updatedAt: FieldValue.serverTimestamp(),
+    });
 
     // 2. Add purchased item to the user's document
     batch.update(userRef, {
@@ -84,34 +81,24 @@ async function handleSuccessfulPayment(orderId: string, itemData: { userId: stri
 
     await batch.commit();
 
-    console.log(`Successfully processed payment for order ${orderId}.`);
+    console.log(`Successfully processed payment for order ${orderId}. User ${userId} granted access to ${itemId}.`);
 }
 
-async function handleFailedPayment(orderId: string, failureReason: string | null, itemData: { userId: string, itemId: string, itemType: string, amount: number }) {
+async function handleFailedPayment(orderId: string, failureReason: string | null) {
      if (!adminFirestore) {
         throw new Error('Firestore Admin is not initialized.');
     }
     const paymentRef = adminFirestore.collection('payments').doc(orderId);
     const paymentDoc = await paymentRef.get();
 
-    if (paymentDoc.exists) {
+    if (paymentDoc.exists && paymentDoc.data()?.status !== 'SUCCESS') {
         await paymentRef.update({
             status: 'FAILED',
             error: failureReason || 'Payment failed or was cancelled.',
-            updatedAt: new Date(),
+            updatedAt: FieldValue.serverTimestamp(),
         });
-    } else {
-        // Create a new failed record if it doesn't exist
-        await paymentRef.set({
-            id: orderId,
-            ...itemData,
-            status: 'FAILED',
-            error: failureReason || 'Payment failed or was cancelled.',
-            createdAt: new Date(),
-            updatedAt: new Date(),
-        });
+         console.log(`Marked payment as FAILED for order ${orderId}.`);
     }
-    console.log(`Marked payment as FAILED for order ${orderId}.`);
 }
 
 
@@ -155,7 +142,7 @@ export async function POST(req: NextRequest) {
     if (txStatus === 'SUCCESS') {
         await handleSuccessfulPayment(orderId, itemData);
     } else {
-        await handleFailedPayment(orderId, body.get('error_details') as string | null, itemData);
+        await handleFailedPayment(orderId, body.get('error_details') as string | null);
     }
 
     // IMPORTANT: Always respond to the webhook with a 200 OK
@@ -163,49 +150,20 @@ export async function POST(req: NextRequest) {
     
   } catch (error: any) {
     console.error('Error handling payment webhook:', error);
-    // Respond with an error status but don't redirect
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
 
+// GET handler is deprecated in favor of client-side handling but kept as a fallback.
 export async function GET(req: NextRequest) {
-    // This GET handler is now just for redirecting the user after they complete the payment.
-    // The actual status update happens via the POST webhook.
     const { searchParams } = new URL(req.url);
     const orderId = searchParams.get('order_id');
-  
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin;
+
     if (!orderId) {
-      return NextResponse.redirect(new URL('/home?payment=failed&reason=no_order_id', req.url));
+      return NextResponse.redirect(new URL('/home?payment=failed&reason=no_order_id', baseUrl));
     }
-
-    if (!adminFirestore) {
-      console.error('Firestore Admin not initialized for GET request.');
-      return NextResponse.redirect(new URL('/home?payment=failed&reason=server_error', req.url));
-    }
-
-    try {
-        const paymentRef = adminFirestore.collection('payments').doc(orderId);
-        const paymentDoc = await paymentRef.get();
-
-        if (!paymentDoc.exists) {
-             return NextResponse.redirect(new URL(`/home?payment=failed&reason=not_found&order_id=${orderId}`, req.url));
-        }
-        
-        const paymentData = paymentDoc.data();
-        if (!paymentData) {
-            return NextResponse.redirect(new URL(`/home?payment=failed&reason=no_data&order_id=${orderId}`, req.url));
-        }
-
-        // Redirect based on the status found in Firestore, which was updated by the webhook.
-        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin;
-        if (paymentData.status === 'SUCCESS') {
-            return NextResponse.redirect(new URL(`/home?payment=success&order_id=${orderId}`, baseUrl));
-        } else {
-            return NextResponse.redirect(new URL(`/home?payment=failed&reason=payment_not_confirmed&order_id=${orderId}`, baseUrl));
-        }
-
-    } catch (error) {
-        console.error('Error handling payment status redirect:', error);
-        return NextResponse.redirect(new URL(`/home?payment=failed&reason=server_error&order_id=${orderId}`, req.url));
-    }
+  
+    // Redirect user to home page. Client-side logic will handle the status check.
+    return NextResponse.redirect(new URL(`/home?order_id=${orderId}&payment_check=true`, baseUrl));
 }

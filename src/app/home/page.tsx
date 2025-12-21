@@ -1,12 +1,12 @@
 
 "use client";
 
-import React, { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import React, { useMemo, useState, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { LoaderCircle, ChevronRight, WandSparkles, DollarSign } from "lucide-react";
-import { collection, query, orderBy, limit } from "firebase/firestore";
-import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
+import { collection, query, orderBy, limit, doc, getDoc, updateDoc, arrayUnion } from "firebase/firestore";
+import { useCollection, useFirestore, useMemoFirebase, useUser } from "@/firebase";
 import { AppLayout } from "@/components/app-layout";
 import {
   Accordion,
@@ -16,10 +16,55 @@ import {
 } from "@/components/ui/accordion";
 import { Card, CardTitle, CardDescription } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import type { Paper, Combo, Tab, PdfDocument } from "@/lib/types";
+import type { Paper, Combo, Tab, Payment } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
-import PaymentDialog from "@/components/payment-dialog";
+import { useToast } from "@/hooks/use-toast";
+
+
+function PaymentStatusHandler() {
+    const searchParams = useSearchParams();
+    const firestore = useFirestore();
+    const { user } = useUser();
+    const { toast } = useToast();
+
+    useEffect(() => {
+        const orderId = searchParams.get('order_id');
+        const paymentCheck = searchParams.get('payment_check');
+
+        if (orderId && paymentCheck === 'true') {
+            const checkPaymentStatus = async () => {
+                const paymentRef = doc(firestore, "payments", orderId);
+                const paymentDoc = await getDoc(paymentRef);
+                
+                if (paymentDoc.exists()) {
+                    const paymentData = paymentDoc.data() as Payment;
+                    if (paymentData.status === 'SUCCESS') {
+                        toast({ title: 'Payment Successful!', description: 'You now have access to the content.' });
+                        
+                        // Grant access on client side if webhook fails for any reason
+                        if(user && !user.isAnonymous) {
+                            const userRef = doc(firestore, "users", user.uid);
+                            await updateDoc(userRef, {
+                                purchasedItems: arrayUnion(paymentData.itemId)
+                            });
+                        }
+
+                    } else if (paymentData.status === 'PENDING') {
+                         toast({ variant: 'destructive', title: 'Payment Pending', description: 'Your payment is still being processed.' });
+                    } else {
+                         toast({ variant: 'destructive', title: 'Payment Failed', description: 'Your payment was not successful. Please try again.' });
+                    }
+                } else {
+                    toast({ variant: 'destructive', title: 'Error', description: 'Could not find the payment record.' });
+                }
+            };
+            checkPaymentStatus();
+        }
+    }, [searchParams, firestore, user, toast]);
+
+    return null;
+}
 
 
 const topicGradients = [
@@ -149,6 +194,9 @@ export default function HomePage() {
 
   return (
     <AppLayout>
+      <Suspense fallback={null}>
+         <PaymentStatusHandler />
+      </Suspense>
       <main className="flex-1 overflow-y-auto bg-background p-4 sm:p-6">
         {isLoading && <div className="flex justify-center p-8"><LoaderCircle className="w-8 h-8 animate-spin text-primary" /></div>}
 
@@ -160,17 +208,6 @@ export default function HomePage() {
 
         <div className="space-y-8">
             
-            {papers && papers.length > 0 && (
-              <div className="space-y-4">
-                  <h2 className="text-xl font-headline font-bold gradient-text">Subjects</h2>
-                  <Accordion type="single" collapsible className="w-full space-y-4">
-                      {(papers || []).map((paper, index) => (
-                          <PaperItem key={paper.id} paper={paper} index={index} />
-                      ))}
-                  </Accordion>
-              </div>
-            )}
-
             {recentCombos && recentCombos.length > 0 && (
               <div>
                    <div className="flex justify-between items-center mb-4">
@@ -186,6 +223,17 @@ export default function HomePage() {
                           <ComboItem key={combo.id} combo={combo} index={index} />
                       ))}
                   </div>
+              </div>
+            )}
+            
+            {papers && papers.length > 0 && (
+              <div className="space-y-4">
+                  <h2 className="text-xl font-headline font-bold gradient-text">Subjects</h2>
+                  <Accordion type="single" collapsible className="w-full space-y-4">
+                      {(papers || []).map((paper, index) => (
+                          <PaperItem key={paper.id} paper={paper} index={index} />
+                      ))}
+                  </Accordion>
               </div>
             )}
             

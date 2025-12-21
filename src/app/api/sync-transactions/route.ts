@@ -2,28 +2,13 @@
 'use server';
 
 import { NextRequest, NextResponse } from 'next/server';
-import { initializeApp, getApps, App, cert } from "firebase-admin/app";
-import { getFirestore as getAdminFirestore, FieldValue } from 'firebase-admin/firestore';
 
-let adminApp: App;
-if (!getApps().length) {
-    try {
-        if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
-            const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
-            adminApp = initializeApp({ credential: cert(serviceAccount) });
-        }
-    } catch (error) {
-        console.error("Firebase Admin initialization error:", error);
-    }
-} else {
-    adminApp = getApps()[0];
-}
-
-const adminFirestore = adminApp ? getAdminFirestore(adminApp) : null;
-
-async function fetchAllSuccessfulOrdersFromCashfree() {
+// This function now acts as a proxy to the Cashfree API.
+// The client-side will call this, and this will call Cashfree.
+// This is to protect the API keys.
+export async function POST(req: NextRequest) {
     if (!process.env.CASHFREE_APP_ID || !process.env.CASHFREE_SECRET_KEY) {
-        throw new Error('Cashfree credentials are not configured on the server.');
+        return NextResponse.json({ error: 'Cashfree credentials are not configured on the server.' }, { status: 500 });
     }
 
     const fromDate = new Date();
@@ -34,110 +19,58 @@ async function fetchAllSuccessfulOrdersFromCashfree() {
     toDate.setDate(toDate.getDate() + 1);
     const to = toDate.toISOString().split('T')[0];
     
-    let allPaidOrders: any[] = [];
-    let nextCursor: string | null = null;
-    let hasMore = true;
-
-    do {
-        const url = new URL('https://api.cashfree.com/pg/orders');
-        url.searchParams.append('from', from);
-        url.searchParams.append('to', to);
-        url.searchParams.append('count', '100');
-        url.searchParams.append('order_status', 'PAID'); 
-
-        if (nextCursor) {
-            url.searchParams.append('cursor', nextCursor);
-        }
-        
-        const response = await fetch(url.toString(), {
-            method: 'GET',
-            headers: {
-                'Accept': 'application/json',
-                'x-client-id': process.env.CASHFREE_APP_ID!,
-                'x-client-secret': process.env.CASHFREE_SECRET_KEY!,
-                'x-api-version': '2023-08-01',
-            },
-        });
-
-        if (!response.ok) {
-            const errorData = await response.json();
-            console.error('Cashfree API Error while fetching orders:', errorData);
-            throw new Error(`Failed to fetch orders from Cashfree: ${errorData.message || 'Unknown API error'}`);
-        }
-        
-        const data = await response.json();
-        
-        if(Array.isArray(data)) {
-           allPaidOrders.push(...data);
-        }
-
-        const cursorFromHeader = response.headers.get('x-next-cursor');
-        if (cursorFromHeader) {
-            nextCursor = cursorFromHeader;
-            hasMore = true;
-        } else {
-            hasMore = false;
-        }
-
-    } while (hasMore);
-    
-    return allPaidOrders;
-}
-
-
-export async function POST(req: NextRequest) {
     try {
-        if (!adminFirestore) {
-            return NextResponse.json({ error: "Firestore Admin is not initialized." }, { status: 500 });
-        }
-        
-        const successfulOrders = await fetchAllSuccessfulOrdersFromCashfree();
-        const batch = adminFirestore.batch();
-        let syncedCount = 0;
+        let allPaidOrders: any[] = [];
+        let nextCursor: string | null = null;
+        let hasMore = true;
 
-        for (const order of successfulOrders) {
-            const orderId = order.order_id;
-            const paymentRef = adminFirestore.collection('payments').doc(orderId);
-            const paymentDoc = await paymentRef.get();
-            
-            if (!paymentDoc.exists || paymentDoc.data()?.status !== 'SUCCESS') {
-                const { userId, itemId, itemType } = order.order_tags || {};
+        do {
+            const url = new URL('https://api.cashfree.com/pg/orders');
+            url.searchParams.append('from', from);
+            url.searchParams.append('to', to);
+            url.searchParams.append('count', '100');
+            url.searchParams.append('order_status', 'PAID'); 
 
-                if (!userId || !itemId || !itemType) {
-                    console.warn(`Skipping order ${orderId} due to missing tags.`);
-                    continue;
-                }
-
-                // 1. Create or update payment record
-                batch.set(paymentRef, {
-                    id: orderId,
-                    userId: userId,
-                    itemId: itemId,
-                    itemType: itemType,
-                    amount: order.order_amount,
-                    status: 'SUCCESS',
-                    createdAt: new Date(order.order_expiry_time), // Approximate time
-                    updatedAt: new Date(),
-                }, { merge: true });
-
-                // 2. Grant access to the user
-                const userRef = adminFirestore.collection('users').doc(userId);
-                batch.update(userRef, {
-                    purchasedItems: FieldValue.arrayUnion(itemId)
-                });
-                
-                syncedCount++;
+            if (nextCursor) {
+                url.searchParams.append('cursor', nextCursor);
             }
-        }
+            
+            const response = await fetch(url.toString(), {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json',
+                    'x-client-id': process.env.CASHFREE_APP_ID!,
+                    'x-client-secret': process.env.CASHFREE_SECRET_KEY!,
+                    'x-api-version': '2023-08-01',
+                },
+            });
 
-        if (syncedCount > 0) {
-            await batch.commit();
-        }
+            if (!response.ok) {
+                const errorData = await response.json();
+                console.error('Cashfree API Error while fetching orders:', errorData);
+                throw new Error(`Failed to fetch orders from Cashfree: ${errorData.message || 'Unknown API error'}`);
+            }
+            
+            const data = await response.json();
+            
+            if(Array.isArray(data)) {
+            allPaidOrders.push(...data);
+            }
 
-        return NextResponse.json({ message: `Sync complete. ${syncedCount} new transactions processed.`, syncedCount });
+            const cursorFromHeader = response.headers.get('x-next-cursor');
+            if (cursorFromHeader) {
+                nextCursor = cursorFromHeader;
+                hasMore = true;
+            } else {
+                hasMore = false;
+            }
 
-    } catch (error: any) {
-        console.error('Error during transaction sync:', error);
+        } while (hasMore);
+        
+        return NextResponse.json({ successfulOrders: allPaidOrders });
+
+    } catch(error: any) {
+        console.error("Sync API Error:", error);
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }

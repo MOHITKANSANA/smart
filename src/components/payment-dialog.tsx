@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { LoaderCircle, ShoppingCart } from 'lucide-react';
 import type { Combo, PdfDocument, User as AppUser } from '@/lib/types';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
-import { doc } from 'firebase/firestore';
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 
 declare global {
@@ -42,21 +42,39 @@ export default function PaymentDialog({ isOpen, setIsOpen, item, itemType }: Pay
 
     const handlePayment = async () => {
         setIsProcessing(true);
+        if (!user) {
+            toast({ variant: 'destructive', title: 'त्रुटि', description: 'कृपया भुगतान करने के लिए लॉगिन करें।' });
+            setIsProcessing(false);
+            return;
+        }
+
+        const orderId = `order_${Date.now()}`;
+
         try {
+            // 1. Create a PENDING record in Firestore first
+            const paymentRef = doc(firestore, "payments", orderId);
+            await setDoc(paymentRef, {
+                id: orderId,
+                userId: user.uid,
+                itemId: item.id,
+                itemType: itemType,
+                amount: item.price || 0,
+                status: 'PENDING',
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp(),
+            });
+
+            // 2. Check if Cashfree SDK is available
             if (typeof window.Cashfree === 'undefined') {
-                toast({
-                    variant: 'destructive',
-                    title: 'भुगतान में समस्या',
-                    description: 'पेमेंट गेटवे लोड नहीं हो सका। कृपया पृष्ठ को रीफ़्रेश करें और पुनः प्रयास करें।',
-                });
-                setIsProcessing(false);
-                return;
+                throw new Error('पेमेंट गेटवे लोड नहीं हो सका। कृपया पृष्ठ को रीफ़्रेश करें।');
             }
 
+            // 3. Create order with the backend to get a session ID
             const res = await fetch("/api/create-order", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
+                    orderId: orderId,
                     userId: user?.uid,
                     userName: appUser?.fullName || user?.email || 'Test User',
                     userEmail: user?.email || 'default-email@example.com',
@@ -66,10 +84,9 @@ export default function PaymentDialog({ isOpen, setIsOpen, item, itemType }: Pay
                 }),
             });
 
-            // Client-side safety check
             if (!res.ok) {
-                const errorText = await res.text();
-                throw new Error(`सर्वर से ऑर्डर बनाने में विफल: ${errorText}`);
+                const errorData = await res.json();
+                throw new Error(errorData.error || `सर्वर से ऑर्डर बनाने में विफल।`);
             }
 
             const data = await res.json();
@@ -78,10 +95,8 @@ export default function PaymentDialog({ isOpen, setIsOpen, item, itemType }: Pay
                 throw new Error('सर्वर से payment_session_id नहीं मिला।');
             }
 
-            const cashfree = new window.Cashfree({
-                mode: "production", // Use "production" for live
-            });
-            
+            // 4. Initiate Cashfree checkout
+            const cashfree = new window.Cashfree({ mode: "production" });
             cashfree.checkout({
                 paymentSessionId: data.payment_session_id,
                 redirectTarget: "_self",
@@ -94,6 +109,9 @@ export default function PaymentDialog({ isOpen, setIsOpen, item, itemType }: Pay
                 title: 'भुगतान में समस्या आई',
                 description: error.message || 'एक अज्ञात त्रुटि हुई।',
             });
+            // If something fails, update the record to FAILED
+            const paymentRef = doc(firestore, "payments", orderId);
+            await setDoc(paymentRef, { status: 'FAILED', error: error.message }, { merge: true });
         } finally {
             setIsProcessing(false);
         }

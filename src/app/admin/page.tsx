@@ -16,6 +16,7 @@ import {
   where,
   getDocs,
   writeBatch,
+  FieldValue,
 } from "firebase/firestore";
 import {
   useFirestore,
@@ -24,7 +25,7 @@ import {
   useMemoFirebase,
   useDoc,
 } from "@/firebase";
-import { addDocumentNonBlocking } from "@/firebase/non-blocking-updates";
+import { addDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import { AppLayout } from "@/components/app-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -239,8 +240,8 @@ function AdminDashboard() {
     setIsSyncing(true);
     toast({ title: "सिंकिंग शुरू...", description: "Cashfree से पुराने ट्रांजेक्शन की जाँच की जा रही है।" });
     try {
-      // Use the absolute URL for the API route
-      const response = await fetch('https://pcsnote.netlify.app/api/sync-transactions', { method: 'POST' });
+      // This is a client-side fetch to a serverless function
+      const response = await fetch('/api/sync-transactions', { method: 'POST' });
       const result = await response.json();
       if (!response.ok) {
         throw new Error(result.error || 'सिंक करने में विफल।');
