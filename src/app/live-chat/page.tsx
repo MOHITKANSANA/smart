@@ -8,11 +8,9 @@ import { collection, query, orderBy, addDoc, serverTimestamp, doc, setDoc } from
 import { AppLayout } from '@/components/app-layout';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Send, LoaderCircle, User, Shield, ChevronLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ChatMessage, User as AppUser } from '@/lib/types';
-import { format } from 'date-fns';
 
 function ChatBubble({ message }: { message: ChatMessage }) {
     const { user } = useUser();
@@ -28,9 +26,11 @@ function ChatBubble({ message }: { message: ChatMessage }) {
                 )}
             >
                 <p className="text-sm break-words">{message.text}</p>
-                <p className="text-xs opacity-70 mt-1 text-right">
-                    {message.createdAt ? format(message.createdAt.toDate(), 'p') : ''}
-                </p>
+                {message.createdAt && (
+                    <p className="text-xs opacity-70 mt-1 text-right">
+                        {message.createdAt.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                )}
             </div>
              {isMe && <div className="flex items-center justify-center h-8 w-8 rounded-full bg-secondary text-secondary-foreground flex-shrink-0"><User className="h-5 w-5"/></div>}
         </div>
@@ -98,8 +98,8 @@ export default function LiveChatPage() {
 
     return (
         <AppLayout>
-            <main className="flex-1 flex flex-col h-full">
-                <div className="flex items-center p-2 border-b sticky top-16 bg-background/80 backdrop-blur-sm z-10">
+            <main className="flex-1 flex flex-col h-[calc(100vh-var(--top-bar-height,4rem))]">
+                <div className="flex items-center p-2 border-b sticky top-0 bg-background/80 backdrop-blur-sm z-10">
                     <Button variant="ghost" size="icon" onClick={() => router.back()}>
                         <ChevronLeft className="h-6 w-6" />
                     </Button>
@@ -122,7 +122,7 @@ export default function LiveChatPage() {
                     <div ref={messagesEndRef} />
                 </div>
                 
-                <div className="p-4 border-t bg-background">
+                <div className="p-4 border-t bg-background/80 backdrop-blur-sm mt-auto">
                     <form onSubmit={handleSendMessage} className="flex items-center gap-2">
                         <Input
                             value={newMessage}

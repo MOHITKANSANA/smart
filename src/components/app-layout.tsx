@@ -91,7 +91,7 @@ const generateColorFromString = (str: string) => {
         .toUpperCase();
 
     const color = "00000".substring(0, 6 - c.length) + c;
-    return `#${'\'\'\''}${color}`;
+    return `#${color}`;
 };
 
 
@@ -268,18 +268,13 @@ function TopBar() {
   const avatarBgColor = React.useMemo(() => user ? generateColorFromString(user.uid) : '#cccccc', [user]);
   
   return (
-    <header className="sticky top-0 z-10 flex h-16 items-center gap-4 border-b bg-background/80 backdrop-blur-sm px-4 md:px-6">
+    <header className="sticky top-0 z-10 flex h-16 items-center gap-4 border-b bg-background/80 backdrop-blur-sm px-4 md:px-6" style={{'--top-bar-height': '4rem'} as React.CSSProperties}>
       <SidebarTrigger className={cn(!isMobile && "hidden")}>
         <Menu />
       </SidebarTrigger>
       <div className="flex-1 flex items-center gap-2">
          <h1 className="font-headline text-xl font-bold gradient-text">MPPSC & Civil Notes</h1>
       </div>
-      <Button variant="ghost" size="icon" asChild>
-        <Link href="/live-chat">
-            <MessageCircle className="h-6 w-6" />
-        </Link>
-      </Button>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" className="relative h-10 w-10 rounded-full">

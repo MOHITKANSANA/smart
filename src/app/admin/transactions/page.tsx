@@ -49,24 +49,24 @@ export default function TransactionsPage() {
             {isLoading ? (
               <div className="flex justify-center p-8"><LoaderCircle className="animate-spin h-8 w-8"/></div>
             ) : (
-              <div className="border rounded-md">
+              <div className="border rounded-md overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Order ID</TableHead>
-                      <TableHead>User ID</TableHead>
-                      <TableHead>Item ID</TableHead>
+                      <TableHead className="min-w-[200px]">Order ID</TableHead>
+                      <TableHead className="min-w-[200px]">User ID</TableHead>
+                      <TableHead className="min-w-[150px]">Item ID</TableHead>
                       <TableHead>राशि</TableHead>
                       <TableHead>स्टेटस</TableHead>
-                      <TableHead>तारीख</TableHead>
+                      <TableHead className="min-w-[180px]">तारीख</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {payments && payments.length > 0 ? payments.map((p) => (
                       <TableRow key={p.id}>
-                        <TableCell className="font-mono text-xs">{p.id}</TableCell>
-                        <TableCell className="font-mono text-xs">{p.userId}</TableCell>
-                        <TableCell className="font-mono text-xs">{p.itemId}</TableCell>
+                        <TableCell className="font-mono text-xs break-all">{p.id}</TableCell>
+                        <TableCell className="font-mono text-xs break-all">{p.userId}</TableCell>
+                        <TableCell className="font-mono text-xs break-all">{p.itemId}</TableCell>
                         <TableCell>₹{p.amount.toFixed(2)}</TableCell>
                         <TableCell>
                           <Badge variant={getStatusVariant(p.status)}>{p.status}</Badge>
@@ -90,5 +90,3 @@ export default function TransactionsPage() {
     </AppLayout>
   );
 }
-
-    

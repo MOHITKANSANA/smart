@@ -159,7 +159,7 @@ export default function ManageSubFoldersPage() {
   const [papers, setPapers] = useState<Paper[]>([]);
   const [tabs, setTabs] = useState<Tab[]>([]);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
       setIsLoading(true);
       const papersSnapshot = await getDocs(query(collection(firestore, "papers"), orderBy("paperNumber")));
       const papersData = papersSnapshot.docs.map(d => ({ ...d.data(), id: d.id } as Paper));
@@ -181,11 +181,11 @@ export default function ManageSubFoldersPage() {
       setTabs(allTabs);
       setAllSubFolders(allSubFoldersData);
       setIsLoading(false);
-    };
+    }, [firestore]);
 
   useEffect(() => {
     fetchData();
-  }, [firestore]);
+  }, [fetchData]);
 
 
   const handleAddNew = () => {
@@ -247,7 +247,7 @@ export default function ManageSubFoldersPage() {
                 <Card key={sf.id} className="flex items-center justify-between p-3">
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold break-words">{sf.name}</p>
-                    <p className="text-sm text-muted-foreground">टॉपिक: {getTabName(sf.tabId)} | विषय: {getPaperName(sf.paperId)}</p>
+                    <p className="text-sm text-muted-foreground break-words">टॉपिक: {getTabName(sf.tabId)} | विषय: {getPaperName(sf.paperId)}</p>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0 ml-4">
                     <Button size="sm" variant="outline" onClick={() => handleEdit(sf)}><Edit className="h-4 w-4"/></Button>

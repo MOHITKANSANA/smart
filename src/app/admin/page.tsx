@@ -33,7 +33,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { FileText, Book, Users, DollarSign, Package, LoaderCircle, Send, Library, FolderKanban, ShieldCheck, KeyRound, Settings, Palette, History, RefreshCw, BookMarked } from "lucide-react";
+import { FileText, Book, Users, DollarSign, Package, LoaderCircle, Send, Library, FolderKanban, ShieldCheck, KeyRound, Settings, Palette, History, RefreshCw, BookMarked, MessageCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import type { Paper, User as AppUser, Combo, Payment, NoteStyleSettings, Tutorials } from "@/lib/types";
@@ -324,6 +324,7 @@ function AdminDashboard() {
     { title: "सब-फोल्डर्स", icon: FolderKanban, link: "/admin/sub-folders" },
     { title: "PDF ডকুমেন্টস", icon: FileText, link: "/admin/pdfs" },
     { title: "PDF कॉम्बो", icon: Package, link: "/admin/combos" },
+    { title: "लाइव चैट", icon: MessageCircle, link: "/admin/live-chat" },
     { title: "ट्रांजेक्शन हिस्ट्री", icon: History, link: "/admin/transactions" },
   ];
   

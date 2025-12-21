@@ -137,7 +137,7 @@ export default function ManageTabsPage() {
   const papersQuery = useMemoFirebase(() => query(collection(firestore, "papers"), orderBy("paperNumber")), [firestore]);
   const { data: papers } = useCollection<Paper>(papersQuery);
 
-  const fetchAllTabs = async () => {
+  const fetchAllTabs = React.useCallback(async () => {
     if (!papers) return;
     setIsLoading(true);
     const tabs: Tab[] = [];
@@ -150,11 +150,13 @@ export default function ManageTabsPage() {
     }
     setAllTabs(tabs);
     setIsLoading(false);
-  };
+  }, [firestore, papers]);
 
   useEffect(() => {
-    fetchAllTabs();
-  }, [firestore, papers]);
+    if (papers) {
+      fetchAllTabs();
+    }
+  }, [papers, fetchAllTabs]);
 
   const handleAddNew = () => {
     setSelectedTab(null);
@@ -219,7 +221,7 @@ export default function ManageTabsPage() {
                 <Card key={t.id} className="flex items-center justify-between p-3">
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold break-words">{t.name}</p>
-                    <p className="text-sm text-muted-foreground">विषय: {getPaperName(t.paperId)}</p>
+                    <p className="text-sm text-muted-foreground break-words">विषय: {getPaperName(t.paperId)}</p>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0 ml-4">
                     <Button size="sm" variant="outline" onClick={() => handleEdit(t)}><Edit className="h-4 w-4"/></Button>

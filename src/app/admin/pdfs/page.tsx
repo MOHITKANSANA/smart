@@ -120,7 +120,7 @@ function PdfForm({ pdf, onFinished }: { pdf?: PdfDocument | null, onFinished: ()
     fetchTabs(selectedPaperId);
      // When paper changes, reset tab and subfolder
     form.reset({ ...form.getValues(), tabId: '', subFolderId: '' });
-  }, [selectedPaperId, firestore]);
+  }, [selectedPaperId, firestore, form]);
 
   useEffect(() => {
     const fetchSubFolders = async (tabId: string) => {
@@ -134,7 +134,7 @@ function PdfForm({ pdf, onFinished }: { pdf?: PdfDocument | null, onFinished: ()
     fetchSubFolders(selectedTabId);
     // When tab changes, reset subfolder
     form.reset({ ...form.getValues(), subFolderId: '' });
-  }, [selectedTabId, firestore]);
+  }, [selectedTabId, firestore, form]);
 
   
   async function onSubmit(values: z.infer<typeof pdfSchema>) {
@@ -241,7 +241,7 @@ export default function ManagePdfsPage() {
 
   useEffect(() => {
     fetchAllData();
-  }, [firestore]);
+  }, [firestore, toast]);
 
 
   const handleAddNew = () => {
@@ -294,7 +294,7 @@ export default function ManagePdfsPage() {
                 <Card key={p.id} className="flex items-center justify-between p-3">
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold break-words">{p.name}</p>
-                    <p className="text-sm text-muted-foreground">फोल्डर: {getSubFolderName(p.subFolderId)}</p>
+                    <p className="text-sm text-muted-foreground break-words">फोल्डर: {getSubFolderName(p.subFolderId)}</p>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0 ml-4">
                     <Button size="sm" variant="outline" onClick={() => handleEdit(p)}><Edit className="h-4 w-4"/></Button>
