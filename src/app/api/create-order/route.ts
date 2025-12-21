@@ -2,7 +2,13 @@
 'use server';
 
 import { NextRequest, NextResponse } from 'next/server';
+import { Cashfree } from 'cashfree-pg';
 import { randomUUID } from 'crypto';
+
+Cashfree.XClientId = process.env.CASHFREE_APP_ID!;
+Cashfree.XClientSecret = process.env.CASHFREE_SECRET_KEY!;
+Cashfree.XEnvironment = Cashfree.Environment.PRODUCTION;
+Cashfree.XApiVersion = "2023-08-01";
 
 export async function POST(req: NextRequest) {
   try {
@@ -13,39 +19,26 @@ export async function POST(req: NextRequest) {
     }
 
     const orderId = `order_${randomUUID()}`;
-    
-    const response = await fetch("https://api.cashfree.com/pg/orders", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-client-id": process.env.CASHFREE_APP_ID!,
-          "x-client-secret": process.env.CASHFREE_SECRET_KEY!,
-          "x-api-version": "2023-08-01",
-        },
-        body: JSON.stringify({
-          order_id: orderId,
-          order_amount: item.price,
-          order_currency: "INR",
-          customer_details: {
+    const returnUrl = `https://studiopublicproxy-4x6y3j5qxq-uc.a.run.app/api/payment-status?order_id={order_id}`;
+
+    const orderRequest = {
+        order_id: orderId,
+        order_amount: item.price,
+        order_currency: "INR",
+        customer_details: {
             customer_id: userId,
             customer_email: userEmail || 'default-email@example.com',
-            customer_phone: userPhone || "9999999999", // Use a default if phone is not provided
+            customer_phone: userPhone || "9999999999",
             customer_name: userName || 'User',
-          },
-          order_meta: {
-             return_url: `https://studiopublicproxy-4x6y3j5qxq-uc.a.run.app/api/payment-status?order_id={order_id}`,
-          },
-          order_note: `Payment for ${item.name}`,
-        }),
-      });
+        },
+        order_meta: {
+            return_url: returnUrl,
+        },
+        order_note: `Payment for ${item.name}`,
+    };
 
-    const data = await response.json();
-
-    if (!response.ok) {
-        console.error("Cashfree API Error Response:", data);
-        const errorMessage = data.message || 'Cashfree API Error';
-        return NextResponse.json({ error: errorMessage }, { status: response.status });
-    }
+    const response = await Cashfree.PGCreateOrder(orderRequest);
+    const orderData = response.data;
     
     // For test payments, we don't need to save to Firestore.
     if (itemType !== 'test') {
@@ -53,7 +46,6 @@ export async function POST(req: NextRequest) {
         const { initializeApp, getApps, cert } = await import('firebase-admin/app');
 
         if (getApps().length === 0) {
-            // This will use the GOOGLE_APPLICATION_CREDENTIALS env var in production.
             initializeApp();
         }
         
@@ -71,11 +63,13 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({
-        payment_session_id: data.payment_session_id,
+        payment_session_id: orderData.payment_session_id,
     });
 
   } catch (error: any) {
     console.error('Cashfree order creation error:', error);
-    return NextResponse.json({ error: error.message || 'Failed to create payment session' }, { status: 500 });
+    // The cashfree-pg package might throw errors with a 'response' property
+    const errorMessage = error.response?.data?.message || error.message || 'Failed to create payment session';
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }
