@@ -8,7 +8,7 @@ import { randomUUID } from 'crypto';
 // This ensures that the keys are not hardcoded and are secure.
 Cashfree.XClientId = process.env.CASHFREE_APP_ID!;
 Cashfree.XClientSecret = process.env.CASHFREE_SECRET_KEY!;
-Cashfree.XEnvironment = Cashfree.Environment.SANDBOX; // Use SANDBOX for testing
+Cashfree.XEnvironment = Cashfree.Environment.PRODUCTION; // Use PRODUCTION for live payments
 
 export async function POST(req: NextRequest) {
   try {
