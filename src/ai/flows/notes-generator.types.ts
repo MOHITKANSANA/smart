@@ -15,6 +15,6 @@ export const NotesGeneratorInputSchema = z.object({
 export type NotesGeneratorInput = z.infer<typeof NotesGeneratorInputSchema>;
 
 export const NotesGeneratorOutputSchema = z.object({
-  notes: z.string().describe('The generated notes in well-structured Markdown format. Use headings, subheadings, bold text, bullet points, and numbered lists to create a clear and organized structure. Highlight key terms and important concepts using bold syntax (**).'),
+  notes: z.string().describe('The generated notes in well-structured Markdown format. The notes should be very detailed, approximately 5 pages long. It must use headings, subheadings, bold text, bullet points, and numbered lists. It should also include image placeholders where appropriate, using the format [[IMAGE: A descriptive prompt for an image generation AI]].'),
 });
 export type NotesGeneratorOutput = z.infer<typeof NotesGeneratorOutputSchema>;
