@@ -8,9 +8,9 @@
     font-size: 2.5em;
     font-weight: 800;
     margin-bottom: 1em;
-    border-bottom: 3px solid hsl(var(--primary));
+    border-bottom: 3px solid #007bff; /* Vibrant Blue */
     padding-bottom: 0.3em;
-    color: hsl(var(--primary));
+    color: #0056b3; /* Darker Blue */
     font-family: var(--font-headline);
 }
 
@@ -20,8 +20,8 @@
     margin-top: 1.5em;
     margin-bottom: 1em;
     padding-left: 0.5em;
-    border-left: 4px solid hsl(var(--accent));
-    color: hsl(var(--accent));
+    border-left: 4px solid #28a745; /* Green */
+    color: #218838; /* Darker Green */
     font-family: var(--font-headline);
 }
 
@@ -30,7 +30,7 @@
     font-weight: 600;
     margin-top: 1.5em;
     margin-bottom: 0.8em;
-    color: hsl(var(--card-foreground));
+    color: #dc3545; /* Red */
 }
 
 .colorful-notes p {
@@ -38,7 +38,7 @@
 }
 
 .colorful-notes strong {
-    color: hsl(var(--primary));
+    color: #0056b3; /* Darker Blue for emphasis */
     font-weight: 700;
 }
 
@@ -52,24 +52,24 @@
 }
 
 .colorful-notes ul > li::marker {
-    color: hsl(var(--accent));
+    color: #28a745; /* Green */
     font-weight: bold;
 }
 
 .colorful-notes ol > li::marker {
-    color: hsl(var(--primary));
+    color: #007bff; /* Vibrant Blue */
     font-weight: bold;
 }
 
 .colorful-notes a {
-    color: hsl(var(--accent));
+    color: #17a2b8; /* Teal/Info color */
     text-decoration: underline;
     text-decoration-color: hsl(var(--accent) / 0.5);
     transition: color 0.2s;
 }
 
 .colorful-notes a:hover {
-    color: hsl(var(--primary));
+    color: #007bff;
 }
 
 .colorful-notes code {
