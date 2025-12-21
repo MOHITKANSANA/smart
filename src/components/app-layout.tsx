@@ -77,7 +77,7 @@ const bottomMenuItems = [
 
 const adminItems = [
   { icon: Shield, label: "एडमिन डैशबोर्ड", href: "/admin" },
-  { icon: MessageCircle, label: "लाइव चैट", href: "/admin/live-chat" },
+  { icon: MessageCircle, label: "एडमिन लाइव चैट", href: "/admin/live-chat" },
 ];
 
 // Helper function to generate a color from a string (e.g., user ID)
