@@ -2,6 +2,29 @@
 'use server';
 
 import { NextRequest, NextResponse } from 'next/server';
+import { initializeApp, getApps, App, cert } from "firebase-admin/app";
+import { getFirestore as getAdminFirestore } from 'firebase-admin/firestore';
+
+let adminApp: App;
+
+if (!getApps().length) {
+    try {
+        if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
+            const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
+            adminApp = initializeApp({
+                credential: cert(serviceAccount)
+            });
+        }
+    } catch (error) {
+        console.error("Firebase Admin initialization error:", error);
+    }
+} else {
+    adminApp = getApps()[0];
+}
+
+
+const adminFirestore = adminApp ? getAdminFirestore(adminApp) : null;
+
 
 // This is the server-side API route that creates a payment order with Cashfree.
 export async function POST(req: NextRequest) {
@@ -25,9 +48,23 @@ export async function POST(req: NextRequest) {
     
     const returnUrl = `https://pcsnote.netlify.app/api/payment-status`;
     
-    // NOTE: We are intentionally not creating a PENDING record here anymore.
-    // The record will be created/updated only after Cashfree sends a webhook to /api/payment-status.
-    // This simplifies this endpoint and makes it more robust against server initialization errors.
+    // 3. Create a PENDING record in Firestore
+    if (adminFirestore) {
+        const paymentRef = adminFirestore.collection('payments').doc(orderId);
+        await paymentRef.set({
+            id: orderId,
+            userId: userId,
+            itemId: item.id,
+            itemType: itemType,
+            amount: item.price,
+            status: 'PENDING',
+            createdAt: new Date(),
+            updatedAt: new Date(),
+        });
+    } else {
+        console.warn("Firestore Admin is not initialized. Skipping PENDING record creation.");
+    }
+
 
     // 4. Construct the request body for Cashfree API
     const requestBody = {

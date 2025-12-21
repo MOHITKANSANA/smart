@@ -51,6 +51,8 @@ async function handleSuccessfulPayment(orderId: string) {
     const paymentDoc = await paymentRef.get();
 
     if (!paymentDoc.exists) {
+        // This case should be rare now, but we'll log it.
+        console.error(`CRITICAL: Payment document not found for successful orderId: ${orderId}. User may not get access.`);
         throw new Error(`Payment document not found for orderId: ${orderId}`);
     }
 
@@ -66,15 +68,24 @@ async function handleSuccessfulPayment(orderId: string) {
     }
 
     const { userId, itemId } = paymentData;
+    
+    if (!userId || !itemId) {
+        throw new Error(`Missing userId or itemId in payment record for order ${orderId}`);
+    }
 
-    // Update payment document to SUCCESS
-    await paymentRef.update({ status: 'SUCCESS', updatedAt: new Date() });
 
-    // Add purchased item to the user's document
     const userRef = adminFirestore.collection('users').doc(userId);
-    await userRef.update({
+    const batch = adminFirestore.batch();
+    
+    // 1. Update payment document to SUCCESS
+    batch.update(paymentRef, { status: 'SUCCESS', updatedAt: new Date() });
+
+    // 2. Add purchased item to the user's document
+    batch.update(userRef, {
         purchasedItems: FieldValue.arrayUnion(itemId),
     });
+
+    await batch.commit();
 
     console.log(`Successfully processed payment for order ${orderId}.`);
 }
@@ -84,12 +95,19 @@ async function handleFailedPayment(orderId: string, failureReason: string | null
         throw new Error('Firestore Admin is not initialized.');
     }
     const paymentRef = adminFirestore.collection('payments').doc(orderId);
-    await paymentRef.update({ 
-        status: 'FAILED',
-        error: failureReason || 'Payment failed or was cancelled.',
-        updatedAt: new Date(),
-    });
-    console.log(`Marked payment as FAILED for order ${orderId}.`);
+    const paymentDoc = await paymentRef.get();
+    
+    // Only update if the document exists
+    if (paymentDoc.exists) {
+        await paymentRef.update({ 
+            status: 'FAILED',
+            error: failureReason || 'Payment failed or was cancelled.',
+            updatedAt: new Date(),
+        });
+        console.log(`Marked payment as FAILED for order ${orderId}.`);
+    } else {
+        console.warn(`Payment document not found for failed orderId: ${orderId}. Cannot mark as FAILED.`);
+    }
 }
 
 
@@ -99,11 +117,6 @@ export async function POST(req: NextRequest) {
     const orderId = body.get('order_id') as string;
     const txStatus = body.get('tx_status') as string;
     const signature = body.get('signature') as string;
-    
-    // Manually get all keys for debugging
-    const allKeys = Array.from(body.keys());
-    console.log('Webhook received keys:', allKeys);
-
 
     if (!orderId || !txStatus || !signature) {
       console.error('Missing required parameters from webhook:', { orderId, txStatus, signature });
@@ -116,19 +129,13 @@ export async function POST(req: NextRequest) {
         await handleFailedPayment(orderId, body.get('error_details') as string | null);
     }
 
-    // After processing, redirect the user based on the final status
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin;
-    if (txStatus === 'SUCCESS') {
-        return NextResponse.redirect(new URL(`/home?payment=success&order_id=${orderId}`, baseUrl));
-    } else {
-        return NextResponse.redirect(new URL(`/home?payment=failed&order_id=${orderId}`, baseUrl));
-    }
+    // IMPORTANT: Always respond to the webhook with a 200 OK
+    return NextResponse.json({ status: "ok" });
     
   } catch (error: any) {
     console.error('Error handling payment webhook:', error);
-    // Even if there's an error, try to redirect the user gracefully.
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin;
-    return NextResponse.redirect(new URL(`/home?payment=failed&reason=server_error`, baseUrl));
+    // Respond with an error status but don't redirect
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
 
