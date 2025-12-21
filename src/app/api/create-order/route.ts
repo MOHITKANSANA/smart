@@ -4,11 +4,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { initializeApp, getApps, App, cert } from "firebase-admin/app";
 import { getFirestore as getAdminFirestore, Timestamp } from 'firebase-admin/firestore';
+import http from 'http';
 
 // This is the server-side API route that creates a payment order with Cashfree.
 export async function POST(req: NextRequest) {
   let adminApp: App;
-  
+  let adminFirestore: ReturnType<typeof getAdminFirestore>;
+
   // Reliably initialize the Firebase Admin SDK for every request if not already initialized.
   if (!getApps().length) {
       if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
@@ -23,8 +25,8 @@ export async function POST(req: NextRequest) {
   } else {
       adminApp = getApps()[0];
   }
+  adminFirestore = getAdminFirestore(adminApp);
 
-  const adminFirestore = getAdminFirestore(adminApp);
 
   try {
     const body = await req.json();
@@ -90,6 +92,10 @@ export async function POST(req: NextRequest) {
             'x-api-version': '2023-08-01',
         },
         body: JSON.stringify(requestBody),
+        // @ts-ignore
+        agent: new http.Agent({ keepAlive: false }),
+        // @ts-ignore
+        duplex: 'half'
     });
 
     const responseData = await response.json();
