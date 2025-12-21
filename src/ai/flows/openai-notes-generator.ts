@@ -55,12 +55,10 @@ const imageGenerator = ai.defineTool(
     },
     async (prompt) => {
         const safePrompt = `A safe, educational, and artistic illustration of: ${prompt}`;
-        console.log(`Generating image for safe prompt: ${safePrompt}`);
         const { media } = await ai.generate({
             model: 'openai/dall-e-2',
             prompt: safePrompt,
         });
-        console.log('Image generated successfully.');
         return media.url;
     }
 );
@@ -81,8 +79,6 @@ const openaiNotesGeneratorFlow = ai.defineFlow(
     const imagePlaceholders = notesContent.match(/\[\[IMAGE: (.*?)\]\]/g) || [];
     
     if (imagePlaceholders.length > 0) {
-        console.log(`Found ${imagePlaceholders.length} image placeholders. Generating images...`);
-
         // 3. Generate images for each placeholder.
         const imageGenerationPromises = imagePlaceholders.map(placeholder => {
             const prompt = placeholder.replace('[[IMAGE: ', '').replace(']]', '');
@@ -97,10 +93,6 @@ const openaiNotesGeneratorFlow = ai.defineFlow(
             const imageMarkdown = `\n![Generated Image](${imageUrl})\n`;
             notesContent = notesContent.replace(placeholder, imageMarkdown);
         });
-
-         console.log('All images generated and embedded in notes.');
-    } else {
-        console.log('No image placeholders found in the generated notes.');
     }
 
 

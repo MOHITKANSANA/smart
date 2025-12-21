@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { generateOpenAINotes } from '@/ai/flows/openai-notes-generator';
+import { generateNotes } from '@/ai/flows/notes-generator';
 import type { NotesGeneratorInput } from '@/ai/flows/notes-generator.types';
 import { AppLayout } from '@/components/app-layout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -52,7 +52,7 @@ export default function AINotesGeneratorPage() {
         description: 'इसमें थोड़ा समय लग सकता है। कृपया प्रतीक्षा करें।',
     });
     try {
-      const result = await generateOpenAINotes(values as NotesGeneratorInput);
+      const result = await generateNotes(values as NotesGeneratorInput);
       sessionStorage.setItem('generatedNotes', result.notes);
       sessionStorage.setItem('notesTopic', values.topic);
       router.push('/ai-notes-generator/preview');
@@ -82,7 +82,7 @@ export default function AINotesGeneratorPage() {
             <div className="flex items-center gap-3">
               <WandSparkles className="w-8 h-8 text-primary" />
               <div>
-                <CardTitle>अपने टॉपिक पर नोट्स बनाएं (OpenAI)</CardTitle>
+                <CardTitle>अपने टॉपिक पर नोट्स बनाएं (Gemini)</CardTitle>
                 <CardDescription>बस अपना चैप्टर या टॉपिक डालें और AI को अपना जादू करने दें।</CardDescription>
               </div>
             </div>
