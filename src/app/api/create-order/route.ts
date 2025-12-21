@@ -2,15 +2,6 @@
 'use server';
 
 import { NextRequest, NextResponse } from 'next/server';
-import { Cashfree } from 'cashfree-pg';
-
-// Initialize Cashfree credentials. It's important to do this outside the request handler
-// to avoid re-initializing on every call.
-Cashfree.XClientId = process.env.CASHFREE_APP_ID!;
-Cashfree.XClientSecret = process.env.CASHFREE_SECRET_KEY!;
-Cashfree.XEnvironment = Cashfree.Environment.PRODUCTION; // Use PRODUCTION for live transactions
-Cashfree.XApiVersion = "2023-08-01";
-
 
 export async function POST(req: NextRequest) {
   try {
@@ -18,14 +9,14 @@ export async function POST(req: NextRequest) {
     const { userId, userEmail, userPhone, userName, item, itemType } = body;
 
     // Basic validation
-    if (!item || !item.price || !item.name) {
-      return NextResponse.json({ error: 'Item information (id, name, price) is missing' }, { status: 400 });
+    if (!item || typeof item.price !== 'number' || !item.name) {
+      return NextResponse.json({ error: 'Item information (id, name, price) is missing or invalid' }, { status: 400 });
     }
 
     const orderId = `order_${Date.now()}`;
     const returnUrl = `https://studiopublicproxy-4x6y3j5qxq-uc.a.run.app/api/payment-status?order_id={order_id}`;
 
-    const orderRequest = {
+    const requestBody = {
       order_id: orderId,
       order_amount: Number(item.price),
       order_currency: "INR",
@@ -41,9 +32,24 @@ export async function POST(req: NextRequest) {
       },
     };
 
-    // Make the API call to Cashfree
-    const response = await Cashfree.PGCreateOrder(orderRequest);
-    const orderData = response.data;
+    // Make the API call to Cashfree using fetch
+    const response = await fetch("https://api.cashfree.com/pg/orders", {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'x-client-id': process.env.CASHFREE_APP_ID!,
+            'x-client-secret': process.env.CASHFREE_SECRET_KEY!,
+            'x-api-version': '2023-08-01',
+        },
+        body: JSON.stringify(requestBody),
+    });
+
+    const responseData = await response.json();
+
+    if (!response.ok) {
+        console.error('Cashfree API Error:', responseData);
+        throw new Error(responseData.message || 'Failed to create order with Cashfree');
+    }
     
     // In a real application, you would save the pending payment to your database here.
     // This is commented out to focus on the payment gateway integration itself.
@@ -71,16 +77,11 @@ export async function POST(req: NextRequest) {
     */
 
     return NextResponse.json({
-      payment_session_id: orderData.payment_session_id,
+      payment_session_id: responseData.payment_session_id,
     });
 
   } catch (error: any) {
-    // This is the crucial part. We now capture the detailed error from the SDK.
-    console.error('Cashfree order creation API error:', error);
-    // The error object from cashfree-pg often has a `response.data.message` field.
-    const errorMessage = error.response?.data?.message || error.message || 'An unknown error occurred with Cashfree.';
-    
-    // Return the specific error message in the JSON response.
-    return NextResponse.json({ error: errorMessage }, { status: 500 });
+    console.error('Order creation API error:', error);
+    return NextResponse.json({ error: error.message || 'An unknown error occurred.' }, { status: 500 });
   }
 }
