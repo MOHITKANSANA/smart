@@ -2,7 +2,6 @@
 'use server';
 
 import { NextRequest, NextResponse } from 'next/server';
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { initializeApp, getApps, App, cert } from "firebase-admin/app";
 import { getFirestore as getAdminFirestore } from 'firebase-admin/firestore';
 
@@ -26,6 +25,7 @@ export async function POST(req: NextRequest) {
   }
 
   const adminFirestore = getAdminFirestore(adminApp);
+  const { doc, setDoc, serverTimestamp } = await import('firebase-admin/firestore');
 
 
   try {
@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
 
     const orderId = `order_${Date.now()}`;
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://example.com';
-    const returnUrl = `${baseUrl}/api/payment-status?order_id={order_id}`;
+    const returnUrl = `${baseUrl}/api/payment-status`;
     
     // 3. Construct the request body for Cashfree API
     const requestBody = {
@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
       },
        order_meta: {
         return_url: returnUrl,
-        notify_url: `${baseUrl}/api/payment-status`,
+        notify_url: returnUrl,
       },
       order_tags: {
         itemId: item.id,
@@ -114,4 +114,3 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: error.message || 'An unknown server error occurred.' }, { status: 500 });
   }
 }
-
