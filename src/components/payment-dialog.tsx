@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { LoaderCircle, ShoppingCart } from 'lucide-react';
 import type { Combo, PdfDocument } from '@/lib/types';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import type { User as AppUser } from '@/lib/types';
 
@@ -44,60 +44,68 @@ export default function PaymentDialog({ isOpen, setIsOpen, item, itemType }: Pay
     const handlePayment = async () => {
         setIsProcessing(true);
         try {
-            if (typeof window === "undefined" || !window.Cashfree) {
-                toast({ variant: 'destructive', title: 'त्रुटि', description: 'कैशफ्री SDK लोड नहीं हुई है। कृपया पेज को रीफ्रेश करें।' });
-                setIsProcessing(false);
-                return;
-            }
+            console.log("Payment started");
 
-            const isTestPayment = itemType === 'test';
+            if (!user && itemType !== 'test') {
+              throw new Error("भुगतान के लिए आपको लॉग इन करना होगा।");
+            }
             
-            if (!user && !isTestPayment) {
-                toast({ variant: 'destructive', title: 'त्रुटि', description: 'भुगतान के लिए आपको लॉग इन करना होगा।' });
-                setIsProcessing(false);
-                return;
-            }
-
-            const response = await fetch('/api/create-order', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    userId: isTestPayment ? 'test_user_001' : user!.uid,
-                    userName: isTestPayment ? 'Test User' : (appUser?.fullName || user?.email),
-                    userEmail: isTestPayment ? 'test@example.com' : user!.email,
-                    userPhone: appUser?.mobileNumber,
-                    item: { id: item.id, name: item.name, price: item.price || 0 },
-                    itemType: itemType,
-                })
+            const res = await fetch("/api/create-order", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                  userId: user?.uid || 'test_user_001',
+                  userName: appUser?.fullName || user?.email || 'Test User',
+                  userEmail: user?.email || 'test@example.com',
+                  userPhone: appUser?.mobileNumber,
+                  item: { id: item.id, name: item.name, price: item.price || 0 },
+                  itemType: itemType,
+              }),
             });
+
+            if (!res.ok) {
+                const errText = await res.text();
+                throw new Error("Server Error: " + (errText || "Order create failed"));
+            }
+
+            const data = await res.json();
+            console.log("Server response:", data);
             
-            const responseData = await response.json();
-
-            if (!response.ok || responseData.error) {
-                throw new Error(responseData.error || 'Server से order बनाने में विफल।');
+            if (data.error) {
+                throw new Error(data.error);
             }
 
-            const { payment_session_id } = responseData;
-
-            if (!payment_session_id) {
-                throw new Error('सर्वर से अमान्य भुगतान सत्र डेटा।');
+            if (!data.payment_session_id) {
+                throw new Error("सर्वर से payment_session_id नहीं मिला।");
             }
-
-            const cashfree = new window.Cashfree(payment_session_id);
-
+    
+            if (typeof window === "undefined" || !window.Cashfree) {
+                throw new Error("Cashfree SDK लोड नहीं हुई। कृपया पेज रीफ्रेश करें।");
+            }
+    
+            const cashfree = new window.Cashfree({
+                mode: "PROD", 
+            });
+    
             cashfree.checkout({
-                paymentSessionId: payment_session_id,
+                paymentSessionId: data.payment_session_id,
                 redirectTarget: "_self",
             });
-
+    
         } catch (error: any) {
-            console.error('Payment initiation error:', error);
-            toast({ variant: 'destructive', title: 'भुगतान त्रुटि', description: `भुगतान सत्र बनाने में विफल: ${error.message}` });
+            console.error("Payment Failed:", error.message);
+            toast({
+                variant: 'destructive',
+                title: 'भुगतान में समस्या आई',
+                description: error.message,
+            });
         } finally {
-            // This will run whether the payment succeeds, fails, or throws an error
             setIsProcessing(false);
         }
     };
+
 
     return (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>

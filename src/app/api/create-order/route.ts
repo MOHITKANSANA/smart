@@ -3,7 +3,6 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { Cashfree } from 'cashfree-pg';
-import { randomUUID } from 'crypto';
 
 Cashfree.XClientId = process.env.CASHFREE_APP_ID!;
 Cashfree.XClientSecret = process.env.CASHFREE_SECRET_KEY!;
@@ -18,7 +17,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'User or item information is missing' }, { status: 400 });
     }
 
-    const orderId = `order_${randomUUID()}`;
+    const orderId = `order_${Date.now()}`;
     const returnUrl = `https://studiopublicproxy-4x6y3j5qxq-uc.a.run.app/api/payment-status?order_id={order_id}`;
 
     const orderRequest = {
@@ -40,7 +39,6 @@ export async function POST(req: NextRequest) {
     const response = await Cashfree.PGCreateOrder(orderRequest);
     const orderData = response.data;
     
-    // For test payments, we don't need to save to Firestore.
     if (itemType !== 'test') {
         const { getFirestore: getAdminFirestore, Timestamp } = await import('firebase-admin/firestore');
         const { initializeApp, getApps, cert } = await import('firebase-admin/app');
@@ -68,7 +66,6 @@ export async function POST(req: NextRequest) {
 
   } catch (error: any) {
     console.error('Cashfree order creation error:', error);
-    // The cashfree-pg package might throw errors with a 'response' property
     const errorMessage = error.response?.data?.message || error.message || 'Failed to create payment session';
     return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
