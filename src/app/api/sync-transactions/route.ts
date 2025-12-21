@@ -22,6 +22,10 @@ if (!getApps().length) {
 const adminFirestore = adminApp ? getAdminFirestore(adminApp) : null;
 
 async function fetchAllSuccessfulOrdersFromCashfree() {
+    if (!process.env.CASHFREE_APP_ID || !process.env.CASHFREE_SECRET_KEY) {
+        throw new Error('Cashfree credentials are not configured on the server.');
+    }
+
     const fromDate = new Date();
     fromDate.setDate(fromDate.getDate() - 30); // Last 30 days
     const from = fromDate.toISOString().split('T')[0];
@@ -39,7 +43,7 @@ async function fetchAllSuccessfulOrdersFromCashfree() {
         url.searchParams.append('from', from);
         url.searchParams.append('to', to);
         url.searchParams.append('count', '100');
-        url.searchParams.append('order_status', 'PAID'); // Crucial fix: Specify the status
+        url.searchParams.append('order_status', 'PAID'); 
 
         if (nextCursor) {
             url.searchParams.append('cursor', nextCursor);
@@ -58,17 +62,15 @@ async function fetchAllSuccessfulOrdersFromCashfree() {
         if (!response.ok) {
             const errorData = await response.json();
             console.error('Cashfree API Error while fetching orders:', errorData);
-            throw new Error(`Failed to fetch orders from Cashfree: ${errorData.message}`);
+            throw new Error(`Failed to fetch orders from Cashfree: ${errorData.message || 'Unknown API error'}`);
         }
         
         const data = await response.json();
         
-        // The API now only returns PAID orders, so no need to filter
         if(Array.isArray(data)) {
            allPaidOrders.push(...data);
         }
 
-        // Check for next page using the 'x-next-cursor' header
         const cursorFromHeader = response.headers.get('x-next-cursor');
         if (cursorFromHeader) {
             nextCursor = cursorFromHeader;
@@ -98,9 +100,8 @@ export async function POST(req: NextRequest) {
             const paymentRef = adminFirestore.collection('payments').doc(orderId);
             const paymentDoc = await paymentRef.get();
             
-            // Only process if the payment is not already marked as SUCCESS
             if (!paymentDoc.exists || paymentDoc.data()?.status !== 'SUCCESS') {
-                const { userId, itemId, itemType } = order.order_tags;
+                const { userId, itemId, itemType } = order.order_tags || {};
 
                 if (!userId || !itemId || !itemType) {
                     console.warn(`Skipping order ${orderId} due to missing tags.`);
