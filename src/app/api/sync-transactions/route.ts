@@ -64,7 +64,9 @@ async function fetchAllSuccessfulOrdersFromCashfree() {
         const data = await response.json();
         
         // The API now only returns PAID orders, so no need to filter
-        allPaidOrders.push(...data);
+        if(Array.isArray(data)) {
+           allPaidOrders.push(...data);
+        }
 
         // Check for next page using the 'x-next-cursor' header
         const cursorFromHeader = response.headers.get('x-next-cursor');
@@ -93,7 +95,7 @@ export async function POST(req: NextRequest) {
 
         for (const order of successfulOrders) {
             const orderId = order.order_id;
-            const paymentRef = adminFirestore.doc(`payments/${orderId}`);
+            const paymentRef = adminFirestore.collection('payments').doc(orderId);
             const paymentDoc = await paymentRef.get();
             
             // Only process if the payment is not already marked as SUCCESS
@@ -118,7 +120,7 @@ export async function POST(req: NextRequest) {
                 }, { merge: true });
 
                 // 2. Grant access to the user
-                const userRef = adminFirestore.doc(`users/${userId}`);
+                const userRef = adminFirestore.collection('users').doc(userId);
                 batch.update(userRef, {
                     purchasedItems: FieldValue.arrayUnion(itemId)
                 });

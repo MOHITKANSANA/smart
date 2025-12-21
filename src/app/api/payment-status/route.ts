@@ -47,7 +47,7 @@ function verifySignature(orderId: string, txStatus: string, signature: string): 
 }
 
 async function handleSuccessfulPayment(orderId: string) {
-    const paymentRef = adminFirestore.doc(`payments/${orderId}`);
+    const paymentRef = adminFirestore.collection('payments').doc(orderId);
     const paymentDoc = await paymentRef.get();
 
     if (!paymentDoc.exists) {
@@ -71,7 +71,7 @@ async function handleSuccessfulPayment(orderId: string) {
     await paymentRef.update({ status: 'SUCCESS', updatedAt: new Date() });
 
     // Add purchased item to the user's document
-    const userRef = adminFirestore.doc(`users/${userId}`);
+    const userRef = adminFirestore.collection('users').doc(userId);
     await userRef.update({
         purchasedItems: FieldValue.arrayUnion(itemId),
     });
@@ -80,7 +80,7 @@ async function handleSuccessfulPayment(orderId: string) {
 }
 
 async function handleFailedPayment(orderId: string, failureReason: string | null) {
-    const paymentRef = adminFirestore.doc(`payments/${orderId}`);
+    const paymentRef = adminFirestore.collection('payments').doc(orderId);
     await paymentRef.update({ 
         status: 'FAILED',
         error: failureReason || 'Payment failed or was cancelled.',
@@ -138,7 +138,7 @@ export async function GET(req: NextRequest) {
     }
 
     try {
-        const paymentRef = adminFirestore.doc(`payments/${orderId}`);
+        const paymentRef = adminFirestore.collection('payments').doc(orderId);
         const paymentDoc = await paymentRef.get();
 
         if (!paymentDoc.exists) {
@@ -163,5 +163,3 @@ export async function GET(req: NextRequest) {
         return NextResponse.redirect(new URL('/home?payment=failed&reason=server_error', req.url));
     }
 }
-
-    
