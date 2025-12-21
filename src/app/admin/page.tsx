@@ -239,7 +239,8 @@ function AdminDashboard() {
     setIsSyncing(true);
     toast({ title: "सिंकिंग शुरू...", description: "Cashfree से पुराने ट्रांजेक्शन की जाँच की जा रही है।" });
     try {
-      const response = await fetch('/api/sync-transactions', { method: 'POST' });
+      // Use the absolute URL for the API route
+      const response = await fetch('https://pcsnote.netlify.app/api/sync-transactions', { method: 'POST' });
       const result = await response.json();
       if (!response.ok) {
         throw new Error(result.error || 'सिंक करने में विफल।');
