@@ -2,31 +2,9 @@
 'use server';
 
 import { NextRequest, NextResponse } from 'next/server';
-import { initializeApp, getApps, App, cert } from "firebase-admin/app";
-import { getFirestore as getAdminFirestore } from 'firebase-admin/firestore';
-
-let adminApp: App;
-
-if (!getApps().length) {
-    try {
-        if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
-            const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
-            adminApp = initializeApp({
-                credential: cert(serviceAccount)
-            });
-        }
-    } catch (error) {
-        console.error("Firebase Admin initialization error:", error);
-    }
-} else {
-    adminApp = getApps()[0];
-}
-
-
-const adminFirestore = adminApp ? getAdminFirestore(adminApp) : null;
-
 
 // This is the server-side API route that creates a payment order with Cashfree.
+// It no longer interacts with Firestore to prevent server crashes related to firebase-admin initialization.
 export async function POST(req: NextRequest) {
   try {
       
@@ -47,26 +25,8 @@ export async function POST(req: NextRequest) {
     const orderId = `order_${Date.now()}`;
     
     const returnUrl = `https://pcsnote.netlify.app/api/payment-status`;
-    
-    // 3. Create a PENDING record in Firestore
-    if (adminFirestore) {
-        const paymentRef = adminFirestore.collection('payments').doc(orderId);
-        await paymentRef.set({
-            id: orderId,
-            userId: userId,
-            itemId: item.id,
-            itemType: itemType,
-            amount: item.price,
-            status: 'PENDING',
-            createdAt: new Date(),
-            updatedAt: new Date(),
-        });
-    } else {
-        console.warn("Firestore Admin is not initialized. Skipping PENDING record creation.");
-    }
 
-
-    // 4. Construct the request body for Cashfree API
+    // 3. Construct the request body for Cashfree API
     const requestBody = {
       order_id: orderId,
       order_amount: Number(item.price),
@@ -88,7 +48,7 @@ export async function POST(req: NextRequest) {
       }
     };
     
-    // 5. Make the API call to Cashfree's production server
+    // 4. Make the API call to Cashfree's production server
     const response = await fetch("https://api.cashfree.com/pg/orders", {
         method: 'POST',
         headers: {
@@ -102,14 +62,14 @@ export async function POST(req: NextRequest) {
 
     const responseData = await response.json();
 
-    // 6. Handle the response from Cashfree
+    // 5. Handle the response from Cashfree
     if (!response.ok) {
         console.error('Cashfree API Error:', responseData);
         const errorMessage = responseData.message || 'Failed to create order with Cashfree';
         return NextResponse.json({ error: errorMessage }, { status: response.status });
     }
     
-    // 7. Send the successful payment session ID and our orderId back to the client
+    // 6. Send the successful payment session ID and our orderId back to the client
     return NextResponse.json({
       payment_session_id: responseData.payment_session_id,
       order_id: orderId

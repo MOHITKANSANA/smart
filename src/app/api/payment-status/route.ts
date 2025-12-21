@@ -43,42 +43,39 @@ function verifySignature(orderId: string, txStatus: string, signature: string): 
   return signature === expectedSignature;
 }
 
-async function handleSuccessfulPayment(orderId: string) {
+async function handleSuccessfulPayment(orderId: string, itemData: { userId: string, itemId: string, itemType: string, amount: number }) {
     if (!adminFirestore) {
         throw new Error('Firestore Admin is not initialized.');
     }
     const paymentRef = adminFirestore.collection('payments').doc(orderId);
     const paymentDoc = await paymentRef.get();
 
-    if (!paymentDoc.exists) {
-        // This case should be rare now, but we'll log it.
-        console.error(`CRITICAL: Payment document not found for successful orderId: ${orderId}. User may not get access.`);
-        throw new Error(`Payment document not found for orderId: ${orderId}`);
-    }
-
-    const paymentData = paymentDoc.data();
-    if (!paymentData) {
-         throw new Error(`Payment data is empty for orderId: ${orderId}`);
-    }
-
     // Prevent re-processing a successful payment
-    if (paymentData.status === 'SUCCESS') {
+    if (paymentDoc.exists && paymentDoc.data()?.status === 'SUCCESS') {
         console.log(`Order ${orderId} already processed as SUCCESS.`);
         return;
     }
 
-    const { userId, itemId } = paymentData;
+    const { userId, itemId, itemType, amount } = itemData;
     
     if (!userId || !itemId) {
         throw new Error(`Missing userId or itemId in payment record for order ${orderId}`);
     }
 
-
     const userRef = adminFirestore.collection('users').doc(userId);
     const batch = adminFirestore.batch();
     
-    // 1. Update payment document to SUCCESS
-    batch.update(paymentRef, { status: 'SUCCESS', updatedAt: new Date() });
+    // 1. Create or Update payment document to SUCCESS
+    batch.set(paymentRef, {
+        id: orderId,
+        userId,
+        itemId,
+        itemType,
+        amount,
+        status: 'SUCCESS',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+    }, { merge: true });
 
     // 2. Add purchased item to the user's document
     batch.update(userRef, {
@@ -90,24 +87,31 @@ async function handleSuccessfulPayment(orderId: string) {
     console.log(`Successfully processed payment for order ${orderId}.`);
 }
 
-async function handleFailedPayment(orderId: string, failureReason: string | null) {
+async function handleFailedPayment(orderId: string, failureReason: string | null, itemData: { userId: string, itemId: string, itemType: string, amount: number }) {
      if (!adminFirestore) {
         throw new Error('Firestore Admin is not initialized.');
     }
     const paymentRef = adminFirestore.collection('payments').doc(orderId);
     const paymentDoc = await paymentRef.get();
-    
-    // Only update if the document exists
+
     if (paymentDoc.exists) {
-        await paymentRef.update({ 
+        await paymentRef.update({
             status: 'FAILED',
             error: failureReason || 'Payment failed or was cancelled.',
             updatedAt: new Date(),
         });
-        console.log(`Marked payment as FAILED for order ${orderId}.`);
     } else {
-        console.warn(`Payment document not found for failed orderId: ${orderId}. Cannot mark as FAILED.`);
+        // Create a new failed record if it doesn't exist
+        await paymentRef.set({
+            id: orderId,
+            ...itemData,
+            status: 'FAILED',
+            error: failureReason || 'Payment failed or was cancelled.',
+            createdAt: new Date(),
+            updatedAt: new Date(),
+        });
     }
+    console.log(`Marked payment as FAILED for order ${orderId}.`);
 }
 
 
@@ -123,10 +127,35 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing required parameters' }, { status: 400 });
     }
 
+    // Since we don't have the order tags here, we need to fetch them from Cashfree
+    const orderDetailsResponse = await fetch(`https://api.cashfree.com/pg/orders/${orderId}`, {
+        method: 'GET',
+        headers: {
+            'Accept': 'application/json',
+            'x-client-id': process.env.CASHFREE_APP_ID!,
+            'x-client-secret': process.env.CASHFREE_SECRET_KEY!,
+            'x-api-version': '2023-08-01',
+        },
+    });
+
+    if (!orderDetailsResponse.ok) {
+        throw new Error(`Failed to fetch order details for ${orderId} from Cashfree.`);
+    }
+
+    const orderDetails = await orderDetailsResponse.json();
+    const { userId, itemId, itemType } = orderDetails.order_tags || {};
+    const amount = orderDetails.order_amount;
+    
+    if(!userId || !itemId || !itemType) {
+        throw new Error(`Missing order tags in Cashfree order details for ${orderId}.`);
+    }
+
+    const itemData = { userId, itemId, itemType, amount };
+
     if (txStatus === 'SUCCESS') {
-        await handleSuccessfulPayment(orderId);
+        await handleSuccessfulPayment(orderId, itemData);
     } else {
-        await handleFailedPayment(orderId, body.get('error_details') as string | null);
+        await handleFailedPayment(orderId, body.get('error_details') as string | null, itemData);
     }
 
     // IMPORTANT: Always respond to the webhook with a 200 OK
