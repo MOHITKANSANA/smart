@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -250,10 +250,10 @@ function AdminDashboard() {
     let todayTotal = 0;
 
     payments.forEach(p => {
-        total += p.amount;
         if (p.createdAt?.toDate() >= today) {
             todayTotal += p.amount;
         }
+        total += p.amount;
     });
     return { totalRevenue: total, todayRevenue: todayTotal };
   }, [payments]);
