@@ -52,7 +52,7 @@ const imageGenerator = ai.defineTool(
     async (prompt) => {
         console.log(`Generating image for prompt: ${prompt}`);
         const { media } = await ai.generate({
-            model: 'dall-e-3',
+            model: 'openai/dall-e-3',
             prompt: prompt,
         });
         console.log('Image generated successfully.');
