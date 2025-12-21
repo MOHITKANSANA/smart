@@ -5,7 +5,7 @@
  * - NotesGeneratorOutput: The return type for the flow.
  */
 
-import { z } from 'genkit';
+import { z } from 'zod';
 
 export const NotesGeneratorInputSchema = z.object({
   topic: z.string().describe('The main topic or chapter title for the notes.'),
