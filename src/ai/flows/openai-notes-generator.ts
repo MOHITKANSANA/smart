@@ -45,14 +45,14 @@ Generate the notes now.
 const imageGenerator = ai.defineTool(
     {
         name: 'dallEImageGenerator',
-        description: 'Generates an image based on a text prompt using DALL-E 3.',
+        description: 'Generates an image based on a text prompt using DALL-E.',
         inputSchema: z.string(),
         outputSchema: z.string(),
     },
     async (prompt) => {
         console.log(`Generating image for prompt: ${prompt}`);
         const { media } = await ai.generate({
-            model: 'openai/dall-e-3',
+            model: 'openai/dall-e-2',
             prompt: prompt,
         });
         console.log('Image generated successfully.');
