@@ -13,30 +13,38 @@ export function useCashfree() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // If the SDK is already loaded (e.g., from a previous page navigation), we're done.
+    // If the SDK is already available on the window object, we're ready.
     if (typeof window.cashfree !== 'undefined') {
       setIsReady(true);
       return;
     }
 
-    // Check if the script tag already exists in the document.
+    // Find the script if it already exists in the DOM
     let script = document.querySelector(`script[src="${CASHFREE_SDK_URL}"]`);
 
     const handleLoad = () => {
-      setIsReady(true);
+        // Double-check if the cashfree object is available on window
+        if (typeof window.cashfree !== 'undefined') {
+            setIsReady(true);
+        }
     };
 
-    if (!script) {
-      // If not, create and append it to the document body.
+    if (script) {
+      // If the script exists, it might be loaded or still loading.
+      // We check the window object again. If it's there, we're ready.
+      if (typeof window.cashfree !== 'undefined') {
+          setIsReady(true);
+      } else {
+        // If not, it's likely still loading, so we add an event listener.
+        script.addEventListener('load', handleLoad);
+      }
+    } else {
+      // If the script doesn't exist at all, create it.
       script = document.createElement('script');
       script.src = CASHFREE_SDK_URL;
       script.async = true;
       script.addEventListener('load', handleLoad);
       document.body.appendChild(script);
-    } else {
-        // if script already exists, it might be loading, or it might have failed.
-        // if window.cashfree is not there yet, we add a listener.
-        script.addEventListener('load', handleLoad);
     }
     
     // Cleanup function to remove event listeners when the component unmounts.
