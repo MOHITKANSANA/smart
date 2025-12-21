@@ -12,6 +12,10 @@ export async function POST(req: NextRequest) {
     if (!item || typeof item.price !== 'number' || !item.name) {
       return NextResponse.json({ error: 'Item information (id, name, price) is missing or invalid' }, { status: 400 });
     }
+     if (!process.env.CASHFREE_APP_ID || !process.env.CASHFREE_SECRET_KEY) {
+      return NextResponse.json({ error: 'Payment gateway credentials are not configured on the server.' }, { status: 500 });
+    }
+
 
     const orderId = `order_${Date.now()}`;
     
@@ -31,8 +35,6 @@ export async function POST(req: NextRequest) {
         // We handle the return URL on the client-side after payment for better UX.
         // No return_url needed here for this flow.
       },
-      // Using "link" as the payment method to get a direct URL
-      order_splits: [],
     };
 
     // Making the API call to Cashfree's production server
