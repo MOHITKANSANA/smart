@@ -38,7 +38,9 @@ async function fetchAllSuccessfulOrdersFromCashfree() {
         const url = new URL('https://api.cashfree.com/pg/orders');
         url.searchParams.append('from', from);
         url.searchParams.append('to', to);
-        url.searchParams.append('count', '100'); // Fetch 100 orders per page
+        url.searchParams.append('count', '100');
+        url.searchParams.append('order_status', 'PAID'); // Crucial fix: Specify the status
+
         if (nextCursor) {
             url.searchParams.append('cursor', nextCursor);
         }
@@ -60,19 +62,15 @@ async function fetchAllSuccessfulOrdersFromCashfree() {
         }
         
         const data = await response.json();
-        const paidOrders = data.filter((order: any) => order.order_status === 'PAID');
-        allPaidOrders.push(...paidOrders);
+        
+        // The API now only returns PAID orders, so no need to filter
+        allPaidOrders.push(...data);
 
-        // Check if there's a next page
-        const linkHeader = response.headers.get('link');
-        if (linkHeader && linkHeader.includes('rel="next"')) {
-             const cursorMatch = linkHeader.match(/cursor=([^>]+)/);
-             if (cursorMatch && cursorMatch[1]) {
-                 nextCursor = cursorMatch[1];
-                 hasMore = true;
-             } else {
-                 hasMore = false;
-             }
+        // Check for next page using the 'x-next-cursor' header
+        const cursorFromHeader = response.headers.get('x-next-cursor');
+        if (cursorFromHeader) {
+            nextCursor = cursorFromHeader;
+            hasMore = true;
         } else {
             hasMore = false;
         }
