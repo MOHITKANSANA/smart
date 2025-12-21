@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { generateNotes } from '@/ai/flows/notes-generator';
+import { generateOpenAINotes } from '@/ai/flows/openai-notes-generator';
 import type { NotesGeneratorInput } from '@/ai/flows/notes-generator.types';
 import { AppLayout } from '@/components/app-layout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -15,11 +15,11 @@ import { Textarea } from '@/components/ui/textarea';
 import {
   Form,
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { LoaderCircle, WandSparkles, ChevronLeft } from 'lucide-react';
@@ -47,13 +47,16 @@ export default function AINotesGeneratorPage() {
 
   async function onSubmit(values: z.infer<typeof notesFormSchema>) {
     setIsGenerating(true);
+    toast({
+        title: 'नोट्स बन रहे हैं...',
+        description: 'इसमें थोड़ा समय लग सकता है। कृपया प्रतीक्षा करें।',
+    });
     try {
-      const result = await generateNotes(values as NotesGeneratorInput);
+      const result = await generateOpenAINotes(values as NotesGeneratorInput);
       sessionStorage.setItem('generatedNotes', result.notes);
       sessionStorage.setItem('notesTopic', values.topic);
       router.push('/ai-notes-generator/preview');
     } catch (error: any) {
-      console.error('Error generating notes:', error);
       toast({
         variant: 'destructive',
         title: 'नोट्स बनाने में त्रुटि!',
@@ -71,7 +74,7 @@ export default function AINotesGeneratorPage() {
           <Button variant="ghost" size="icon" onClick={() => router.back()}>
             <ChevronLeft className="h-6 w-6" />
           </Button>
-          <h1 className="font-headline text-2xl font-bold ml-2 gradient-text">AI Notes जेनरेटर</h1>
+          <h1 className="font-headline text-2xl font-bold gradient-text">AI Notes जेनरेटर</h1>
         </div>
 
         <Card className="max-w-2xl mx-auto shadow-lg">
@@ -79,7 +82,7 @@ export default function AINotesGeneratorPage() {
             <div className="flex items-center gap-3">
               <WandSparkles className="w-8 h-8 text-primary" />
               <div>
-                <CardTitle>अपने टॉपिक पर नोट्स बनाएं</CardTitle>
+                <CardTitle>अपने टॉपिक पर नोट्स बनाएं (OpenAI)</CardTitle>
                 <CardDescription>बस अपना चैप्टर या टॉपिक डालें और AI को अपना जादू करने दें।</CardDescription>
               </div>
             </div>
