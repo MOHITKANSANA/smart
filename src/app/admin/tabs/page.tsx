@@ -2,7 +2,7 @@
 
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   collection,
   doc,
@@ -14,8 +14,6 @@ import {
 } from "firebase/firestore";
 import {
   useFirestore,
-  useCollection,
-  useMemoFirebase,
 } from "@/firebase";
 import { AppLayout } from "@/components/app-layout";
 import { Button } from "@/components/ui/button";
@@ -43,31 +41,40 @@ export default function ManageTabsPage() {
   const { toast } = useToast();
   
   const [allTabs, setAllTabs] = useState<Tab[]>([]);
+  const [papers, setPapers] = useState<Paper[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  
-  const papersQuery = useMemoFirebase(() => query(collection(firestore, "papers"), orderBy("paperNumber")), [firestore]);
-  const { data: papers } = useCollection<Paper>(papersQuery);
 
-  const fetchAllTabs = React.useCallback(async () => {
-    if (!papers) return;
+  const fetchData = useCallback(async () => {
     setIsLoading(true);
-    const tabs: Tab[] = [];
-    for (const paper of papers) {
-      const tabsQuery = query(collection(firestore, `papers/${paper.id}/tabs`), orderBy("name"));
-      const tabsSnapshot = await getDocs(tabsQuery);
-      tabsSnapshot.forEach(doc => {
-        tabs.push({ ...doc.data(), id: doc.id } as Tab);
-      });
+    try {
+        const papersQuery = query(collection(firestore, "papers"), orderBy("paperNumber"));
+        const papersSnapshot = await getDocs(papersQuery);
+        const papersData = papersSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Paper));
+        setPapers(papersData);
+
+        const tabPromises = papersData.map(paper => {
+            const tabsQuery = query(collection(firestore, `papers/${paper.id}/tabs`), orderBy("name"));
+            return getDocs(tabsQuery);
+        });
+
+        const tabSnapshots = await Promise.all(tabPromises);
+        
+        const allTabsData = tabSnapshots.flatMap(snapshot => 
+            snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Tab))
+        );
+        
+        setAllTabs(allTabsData);
+    } catch (error) {
+        console.error("Error fetching data:", error);
+        toast({ variant: "destructive", title: "त्रुटि!", description: "डेटा लोड करने में विफल।" });
+    } finally {
+        setIsLoading(false);
     }
-    setAllTabs(tabs);
-    setIsLoading(false);
-  }, [firestore, papers]);
+  }, [firestore, toast]);
 
   useEffect(() => {
-    if (papers) {
-      fetchAllTabs();
-    }
-  }, [papers, fetchAllTabs]);
+    fetchData();
+  }, [fetchData]);
 
 
   const handleDelete = async (tabToDelete: Tab) => {
@@ -122,7 +129,7 @@ export default function ManageTabsPage() {
               allTabs.map(t => (
                 <Card key={t.id} className="flex items-center justify-between p-3">
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold break-words">{t.name}</p>
+                    <p className="font-semibold break-all">{t.name}</p>
                     <p className="text-sm text-muted-foreground break-words">विषय: {getPaperName(t.paperId)}</p>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0 ml-4">

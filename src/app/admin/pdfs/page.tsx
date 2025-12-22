@@ -2,10 +2,10 @@
 
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { collection, query, orderBy, getDocs } from "firebase/firestore";
-import { useFirestore, useMemoFirebase } from "@/firebase";
+import { useFirestore } from "@/firebase";
 import { AppLayout } from "@/components/app-layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -35,44 +35,38 @@ export default function ManagePdfsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [subFolders, setSubFolders] = useState<SubFolder[]>([]);
   
-  const fetchAllData = async () => {
+  const fetchAllData = useCallback(async () => {
       setIsLoading(true);
       try {
         const papersSnapshot = await getDocs(query(collection(firestore, "papers"), orderBy("paperNumber")));
         const papersData = papersSnapshot.docs.map(d => ({ ...d.data(), id: d.id } as Paper));
         
-        const allTabs: Tab[] = [];
-        const allSubFoldersData: SubFolder[] = [];
-        const allPdfsData: PdfDocument[] = [];
+        const tabPromises = papersData.map(paper => getDocs(query(collection(firestore, `papers/${paper.id}/tabs`), orderBy("name"))));
+        const tabSnapshots = await Promise.all(tabPromises);
+        const allTabsData = tabSnapshots.flatMap(snapshot => snapshot.docs.map(d => ({ ...d.data(), id: d.id } as Tab)));
 
-        for (const paper of papersData) {
-          const tabsSnapshot = await getDocs(query(collection(firestore, `papers/${paper.id}/tabs`), orderBy("name")));
-          const tabsData = tabsSnapshot.docs.map(d => ({ ...d.data(), id: d.id } as Tab));
-          allTabs.push(...tabsData);
-          for (const tab of tabsData) {
-              const subFoldersSnapshot = await getDocs(query(collection(firestore, `tabs/${tab.id}/subFolders`), orderBy("name")));
-              const subFoldersData = subFoldersSnapshot.docs.map(d => ({ ...d.data(), id: d.id } as SubFolder));
-              allSubFoldersData.push(...subFoldersData);
-              for (const subFolder of subFoldersData) {
-                  const pdfsSnapshot = await getDocs(query(collection(firestore, `subFolders/${subFolder.id}/pdfDocuments`), orderBy("createdAt", "desc")));
-                  const pdfsData = pdfsSnapshot.docs.map(d => ({ ...d.data(), id: d.id } as PdfDocument));
-                  allPdfsData.push(...pdfsData);
-              }
-          }
-        }
+        const subFolderPromises = allTabsData.map(tab => getDocs(query(collection(firestore, `tabs/${tab.id}/subFolders`), orderBy("name"))));
+        const subFolderSnapshots = await Promise.all(subFolderPromises);
+        const allSubFoldersData = subFolderSnapshots.flatMap(snapshot => snapshot.docs.map(d => ({ ...d.data(), id: d.id } as SubFolder)));
         setSubFolders(allSubFoldersData);
+        
+        const pdfPromises = allSubFoldersData.map(subFolder => getDocs(query(collection(firestore, `subFolders/${subFolder.id}/pdfDocuments`), orderBy("createdAt", "desc"))));
+        const pdfSnapshots = await Promise.all(pdfPromises);
+        const allPdfsData = pdfSnapshots.flatMap(snapshot => snapshot.docs.map(d => ({ ...d.data(), id: d.id } as PdfDocument)));
+
         setAllPdfs(allPdfsData);
+
       } catch (error) {
         console.error("Error fetching all data:", error);
         toast({ variant: "destructive", title: "त्रुटि!", description: "डेटा लोड करने में विफल।" });
       } finally {
         setIsLoading(false);
       }
-    };
+    }, [firestore, toast]);
 
   useEffect(() => {
     fetchAllData();
-  }, [firestore, toast]);
+  }, [fetchAllData]);
 
 
   const handleDelete = async (pdfToDelete: PdfDocument) => {

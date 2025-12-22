@@ -110,7 +110,7 @@ export default function ManagePapersPage() {
               papers?.map(p => (
                 <Card key={p.id} className="flex items-center justify-between p-3">
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold break-words">{p.paperNumber}. {p.name}</p>
+                    <p className="font-semibold break-all">{p.paperNumber}. {p.name}</p>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0 ml-4">
                     <Button size="sm" variant="outline" onClick={() => router.push(`/admin/papers/edit/${p.id}`)}><Edit className="h-4 w-4"/></Button>

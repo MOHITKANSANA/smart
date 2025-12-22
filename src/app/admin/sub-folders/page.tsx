@@ -44,28 +44,32 @@ export default function ManageSubFoldersPage() {
   const [tabs, setTabs] = useState<Tab[]>([]);
 
   const fetchData = useCallback(async () => {
-      setIsLoading(true);
-      const papersSnapshot = await getDocs(query(collection(firestore, "papers"), orderBy("paperNumber")));
+    setIsLoading(true);
+    try {
+      const papersQuery = query(collection(firestore, "papers"), orderBy("paperNumber"));
+      const papersSnapshot = await getDocs(papersQuery);
       const papersData = papersSnapshot.docs.map(d => ({ ...d.data(), id: d.id } as Paper));
       setPapers(papersData);
 
-      const allTabs: Tab[] = [];
-      const allSubFoldersData: SubFolder[] = [];
+      const tabPromises = papersData.map(paper => getDocs(query(collection(firestore, `papers/${paper.id}/tabs`), orderBy("name"))));
+      const tabSnapshots = await Promise.all(tabPromises);
+      const allTabsData = tabSnapshots.flatMap(snapshot => snapshot.docs.map(d => ({ ...d.data(), id: d.id } as Tab)));
+      setTabs(allTabsData);
+      
+      const subFolderPromises = allTabsData.map(tab => getDocs(query(collection(firestore, `tabs/${tab.id}/subFolders`), orderBy("name"))));
+      const subFolderSnapshots = await Promise.all(subFolderPromises);
+      const allSubFoldersData = subFolderSnapshots.flatMap(snapshot => snapshot.docs.map(d => ({ ...d.data(), id: d.id } as SubFolder)));
 
-      for (const paper of papersData) {
-        const tabsSnapshot = await getDocs(query(collection(firestore, `papers/${paper.id}/tabs`), orderBy("name")));
-        const tabsData = tabsSnapshot.docs.map(d => ({ ...d.data(), id: d.id } as Tab));
-        allTabs.push(...tabsData);
-        for (const tab of tabsData) {
-            const subFoldersSnapshot = await getDocs(query(collection(firestore, `tabs/${tab.id}/subFolders`), orderBy("name")));
-            const subFoldersData = subFoldersSnapshot.docs.map(d => ({ ...d.data(), id: d.id } as SubFolder));
-            allSubFoldersData.push(...subFoldersData);
-        }
-      }
-      setTabs(allTabs);
       setAllSubFolders(allSubFoldersData);
+
+    } catch (error) {
+      console.error("Error fetching data:", error);
+      toast({ variant: "destructive", title: "त्रुटि!", description: "डेटा लोड करने में विफल।" });
+    } finally {
       setIsLoading(false);
-    }, [firestore]);
+    }
+  }, [firestore, toast]);
+
 
   useEffect(() => {
     fetchData();
@@ -152,5 +156,3 @@ export default function ManageSubFoldersPage() {
     </AppLayout>
   );
 }
-
-    

@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, Suspense, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
@@ -16,6 +16,7 @@ import {
   setDoc,
   deleteDoc,
   getDoc,
+  writeBatch
 } from 'firebase/firestore';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { AppLayout } from '@/components/app-layout';
@@ -88,44 +89,74 @@ function PdfEditForm({ pdfId }: { pdfId: string }) {
   const selectedTabId = form.watch('tabId');
   const selectedAccessType = form.watch('accessType');
 
+  const findPdfAndPath = useCallback(async (id: string) => {
+    const allSubFoldersQuery = query(collection(firestore, 'subFolders'));
+    const allTabsQuery = query(collection(firestore, 'tabs'));
+
+    const subFoldersCollectionGroup = query(collectionGroup(firestore, 'subFolders'));
+    const allSubFoldersSnapshot = await getDocs(subFoldersCollectionGroup);
+
+    for (const subFolderDoc of allSubFoldersSnapshot.docs) {
+      const pdfRef = doc(firestore, subFolderDoc.ref.path, 'pdfDocuments', id);
+      const pdfSnap = await getDoc(pdfRef);
+      if (pdfSnap.exists()) {
+        const pdfData = { ...pdfSnap.data(), id: pdfSnap.id } as PdfDocument;
+        const subFolderData = subFolderDoc.data() as SubFolder;
+        return { pdf: pdfData, path: { ...subFolderData, subFolderId: subFolderDoc.id } };
+      }
+    }
+    return { pdf: null, path: null };
+  }, [firestore]);
+
+
   useEffect(() => {
     const fetchPdf = async () => {
       setIsLoadingPdf(true);
-      const allSubFoldersSnapshot = await getDocs(query(collection(firestore, "subFolders")));
+      try {
+        const allTabsSnapshot = await getDocs(collection(firestore, 'tabs'));
+        const allTabs = allTabsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Tab & {id: string}));
 
-      let foundPdf: PdfDocument | null = null;
-      let foundPath: { paperId: string, tabId: string, subFolderId: string } | null = null;
-
-      for (const subFolderDoc of allSubFoldersSnapshot.docs) {
-        const pdfRef = doc(firestore, `subFolders/${subFolderDoc.id}/pdfDocuments`, pdfId);
-        const pdfSnap = await getDoc(pdfRef);
-        if (pdfSnap.exists()) {
-          foundPdf = { ...pdfSnap.data(), id: pdfSnap.id } as PdfDocument;
-          const subFolderData = subFolderDoc.data() as SubFolder;
-          foundPath = {
-            paperId: subFolderData.paperId,
-            tabId: subFolderData.tabId,
-            subFolderId: subFolderDoc.id,
-          };
-          break;
+        let foundPdf: PdfDocument | null = null;
+        let foundPath: { paperId: string, tabId: string, subFolderId: string } | null = null;
+        
+        for(const tab of allTabs) {
+          const subFoldersSnapshot = await getDocs(collection(firestore, `tabs/${tab.id}/subFolders`));
+          for (const subFolderDoc of subFoldersSnapshot.docs) {
+            const pdfRef = doc(firestore, `subFolders/${subFolderDoc.id}/pdfDocuments`, pdfId);
+            const pdfSnap = await getDoc(pdfRef);
+            if (pdfSnap.exists()) {
+              foundPdf = { ...pdfSnap.data(), id: pdfSnap.id } as PdfDocument;
+              foundPath = {
+                paperId: tab.paperId,
+                tabId: tab.id,
+                subFolderId: subFolderDoc.id,
+              };
+              break;
+            }
+          }
+          if(foundPdf) break;
         }
+
+        if (foundPdf && foundPath) {
+          setInitialPdf(foundPdf);
+          setInitialPath(foundPath);
+          form.reset({
+              ...foundPdf,
+              paperId: foundPath.paperId,
+              tabId: foundPath.tabId,
+              subFolderId: foundPath.subFolderId,
+              price: foundPdf.price || undefined,
+          });
+        } else {
+            toast({ variant: 'destructive', title: 'त्रुटि', description: 'PDF नहीं मिला।' });
+            router.push('/admin/pdfs');
+        }
+      } catch (error) {
+        console.error("Failed to fetch PDF:", error);
+        toast({ variant: 'destructive', title: 'त्रुटि', description: 'PDF लोड करने में विफल।' });
+      } finally {
+        setIsLoadingPdf(false);
       }
-      
-      if (foundPdf && foundPath) {
-        setInitialPdf(foundPdf);
-        setInitialPath(foundPath);
-        form.reset({
-            ...foundPdf,
-            paperId: foundPath.paperId,
-            tabId: foundPath.tabId,
-            subFolderId: foundPath.subFolderId,
-            price: foundPdf.price || undefined,
-        });
-      } else {
-          toast({ variant: 'destructive', title: 'त्रुटि', description: 'PDF नहीं मिला।' });
-          router.push('/admin/pdfs');
-      }
-      setIsLoadingPdf(false);
     };
 
     fetchPdf();
@@ -177,19 +208,25 @@ function PdfEditForm({ pdfId }: { pdfId: string }) {
     try {
       const { subFolderId } = values;
       const finalValues = { ...values, price: values.accessType === 'Free' ? 0 : values.price };
-      delete finalValues.id; // Don't save the id in the document data
+      
+      const batch = writeBatch(firestore);
 
       if (initialPath.subFolderId !== subFolderId) {
         // Move the document: delete from old path and create in new path
-        await deleteDoc(doc(firestore, `subFolders/${initialPath.subFolderId}/pdfDocuments`, initialPdf.id));
-        await setDoc(doc(firestore, `subFolders/${subFolderId}/pdfDocuments`, initialPdf.id), { ...finalValues, createdAt: initialPdf.createdAt || serverTimestamp() });
+        const oldPdfRef = doc(firestore, `subFolders/${initialPath.subFolderId}/pdfDocuments`, initialPdf.id);
+        const newPdfRef = doc(firestore, `subFolders/${subFolderId}/pdfDocuments`, initialPdf.id);
+        
+        batch.delete(oldPdfRef);
+        batch.set(newPdfRef, { ...finalValues, createdAt: initialPdf.createdAt || serverTimestamp() });
+
         toast({ title: 'सफलता!', description: `PDF "${values.name}" सफलतापूर्वक मूव और अपडेट हो गया है।` });
       } else {
         // Update in place
         const pdfRef = doc(firestore, `subFolders/${subFolderId}/pdfDocuments`, initialPdf.id);
-        await setDoc(pdfRef, finalValues, { merge: true });
+        batch.set(pdfRef, finalValues, { merge: true });
         toast({ title: 'सफलता!', description: `PDF "${values.name}" सफलतापूर्वक अपडेट हो गया है।` });
       }
+      await batch.commit();
       router.push('/admin/pdfs');
     } catch (error) {
       console.error(error);
