@@ -26,8 +26,6 @@ import { useToast } from "@/hooks/use-toast";
 
 function PaymentStatusHandler() {
     const searchParams = useSearchParams();
-    const firestore = useFirestore();
-    const { user } = useUser();
     const { toast } = useToast();
     const router = useRouter();
     const [isVerifying, setIsVerifying] = useState(false);
@@ -36,44 +34,24 @@ function PaymentStatusHandler() {
         const orderId = searchParams.get('order_id');
         const paymentCheck = searchParams.get('payment_check');
 
-        if (orderId && paymentCheck === 'true' && user && !isVerifying) {
+        if (orderId && paymentCheck === 'true' && !isVerifying) {
             setIsVerifying(true);
             toast({ title: 'आपका भुगतान सत्यापित किया जा रहा है...', description: 'कृपया प्रतीक्षा करें...' });
 
             const verifyPayment = async () => {
                 try {
-                    // Step 1: Check the payment status from your own server/API
+                    // This API route will now handle verification and DB update securely on the server
                     const response = await fetch(`/api/get-payment-status?order_id=${orderId}`);
-                    if (!response.ok) {
-                        const errorData = await response.json();
-                        throw new Error(errorData.error || 'सर्वर से भुगतान की स्थिति प्राप्त करने में विफल।');
-                    }
                     const data = await response.json();
-                    
-                    const paymentRef = doc(firestore, "payments", orderId);
-                    const paymentDoc = await getDoc(paymentRef);
 
-                    // If payment record doesn't exist or already processed, stop.
-                    if (paymentDoc.exists() && paymentDoc.data()?.status === 'SUCCESS') {
-                        toast({ title: 'भुगतान पहले ही सत्यापित हो चुका है।' });
-                        router.replace('/home', { scroll: false });
-                        return;
+                    if (!response.ok) {
+                        throw new Error(data.error || 'सर्वर से भुगतान की स्थिति प्राप्त करने में विफल।');
                     }
                     
-                    const userRef = doc(firestore, "users", user.uid);
-                    const batch = writeBatch(firestore);
-
-                    if (data.order_status === 'PAID' || data.order_status === 'SUCCESS') {
-                        batch.set(paymentRef, { status: 'SUCCESS', updatedAt: new Date() }, { merge: true });
-                        if (data.order_tags?.itemId) {
-                            batch.update(userRef, { purchasedItems: arrayUnion(data.order_tags.itemId) });
-                        }
-                        await batch.commit();
-                        toast({ title: 'भुगतान सफल!', description: 'आपको कंटेंट का एक्सेस मिल गया है।' });
+                    if (data.status === 'SUCCESS') {
+                        toast({ title: 'भुगतान सफल!', description: 'आपको कंटेंट का एक्सेस मिल गया है। अब आप इसे पढ़ सकते हैं।' });
                     } else {
-                        batch.set(paymentRef, { status: 'FAILED', updatedAt: new Date() }, { merge: true });
-                        await batch.commit();
-                        toast({ variant: 'destructive', title: 'भुगतान विफल', description: 'आपका भुगतान सफल नहीं हुआ या रद्द कर दिया गया।' });
+                        toast({ variant: 'destructive', title: 'भुगतान विफल', description: data.error || 'आपका भुगतान सफल नहीं हुआ या रद्द कर दिया गया।' });
                     }
 
                 } catch (error: any) {
@@ -86,9 +64,22 @@ function PaymentStatusHandler() {
                 }
             };
 
-            verifyPayment();
+            // Delay slightly to allow DB to sync after webhook/server update
+            const timer = setTimeout(verifyPayment, 1500);
+            return () => clearTimeout(timer);
         }
-    }, [searchParams, firestore, user, toast, router, isVerifying]);
+    }, [searchParams, toast, router, isVerifying]);
+
+    if (isVerifying) {
+        return (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                <div className="bg-background p-6 rounded-lg flex items-center gap-4 shadow-lg">
+                    <LoaderCircle className="w-8 h-8 animate-spin text-primary" />
+                    <span className="font-semibold">पेमेंट सत्यापित हो रहा है...</span>
+                </div>
+            </div>
+        );
+    }
 
     return null;
 }

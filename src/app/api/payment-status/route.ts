@@ -6,32 +6,29 @@ import { FieldValue } from 'firebase-admin/firestore';
 import { initializeApp, getApps, App, cert } from "firebase-admin/app";
 import { getFirestore as getAdminFirestore } from 'firebase-admin/firestore';
 
+// --- Firebase Admin Initialization ---
 let adminApp: App | null = null;
 let adminFirestore: ReturnType<typeof getAdminFirestore> | null = null;
 
 const initializeAdmin = () => {
-    if (getApps().length === 0) {
+    const serviceAccountKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
+    if (serviceAccountKey && getApps().length === 0) {
         try {
-            const serviceAccountKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
-            if (serviceAccountKey) {
-                const serviceAccount = JSON.parse(serviceAccountKey);
-                adminApp = initializeApp({
-                    credential: cert(serviceAccount)
-                });
-                adminFirestore = getAdminFirestore(adminApp);
-            } else {
-                 console.warn('[API Payment Status] FIREBASE_SERVICE_ACCOUNT_KEY is not set.');
-            }
+            const serviceAccount = JSON.parse(serviceAccountKey);
+            adminApp = initializeApp({ credential: cert(serviceAccount) });
+            adminFirestore = getAdminFirestore(adminApp);
         } catch (error: any) {
-            console.error('[API Payment Status] Firebase Admin initialization error:', error.message);
+            console.error('[API Payment Status Webhook] Firebase Admin initialization error:', error.message);
         }
-    } else {
+    } else if (getApps().length > 0) {
         adminApp = getApps()[0];
         adminFirestore = getAdminFirestore(adminApp);
     }
 };
 
 initializeAdmin();
+// --- End of Firebase Admin Initialization ---
+
 
 async function handleSuccessfulPayment(orderId: string, itemData: { userId: string, itemId: string, itemType: string, amount: number }) {
     if (!adminFirestore) {
@@ -81,12 +78,12 @@ async function handleFailedPayment(orderId: string, failureReason: string | null
     const paymentDoc = await paymentRef.get();
 
     // Only update if it's not already successful
-    if (paymentDoc.exists && paymentDoc.data()?.status !== 'SUCCESS') {
-        await paymentRef.update({
+    if (!paymentDoc.exists() || paymentDoc.data()?.status !== 'SUCCESS') {
+        await paymentRef.set({
             status: 'FAILED',
             error: failureReason || 'Payment failed or was cancelled.',
             updatedAt: FieldValue.serverTimestamp(),
-        });
+        }, { merge: true });
          console.log(`Webhook: Marked payment as FAILED for order ${orderId}.`);
     }
 }
@@ -94,17 +91,34 @@ async function handleFailedPayment(orderId: string, failureReason: string | null
 // This is the server-to-server webhook from Cashfree
 export async function POST(req: NextRequest) {
   try {
+    // Initialize admin on each request to ensure it's ready
+    initializeAdmin();
+
+    if (!adminFirestore) {
+      console.error('Webhook Error: Firestore Admin not available.');
+      // Return 200 to prevent retries, but log the critical error.
+      return NextResponse.json({ status: "error", message: "Database connection failed on server." }, { status: 200 });
+    }
+
     const body = await req.json();
-    const orderId = body.data.order.order_id;
-    const txStatus = body.data.payment.payment_status;
+    const order = body.data?.order;
+    const payment = body.data?.payment;
+
+    if (!order || !payment) {
+        console.error('Webhook: Invalid webhook structure received.');
+        return NextResponse.json({ error: 'Invalid data structure' }, { status: 400 });
+    }
+
+    const orderId = order.order_id;
+    const txStatus = payment.payment_status;
 
     if (!orderId || !txStatus) {
       console.error('Webhook: Missing required parameters from webhook:', { orderId, txStatus });
       return NextResponse.json({ error: 'Missing required parameters' }, { status: 400 });
     }
 
-    const { userId, itemId, itemType } = body.data.order.order_tags || {};
-    const amount = body.data.order.order_amount;
+    const { userId, itemId, itemType } = order.order_tags || {};
+    const amount = order.order_amount;
     
     if(!userId || !itemId || !itemType) {
         console.error(`Webhook: Missing order tags in Cashfree webhook for ${orderId}.`);
@@ -117,7 +131,7 @@ export async function POST(req: NextRequest) {
     if (txStatus === 'SUCCESS') {
         await handleSuccessfulPayment(orderId, itemData);
     } else {
-        await handleFailedPayment(orderId, body.data.payment.payment_message || 'Payment not successful');
+        await handleFailedPayment(orderId, payment.payment_message || 'Payment not successful');
     }
 
     // IMPORTANT: Always respond to the webhook with a 200 OK
