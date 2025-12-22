@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser, useFirestore, useCollection, useDoc, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, addDoc, serverTimestamp, doc, setDoc, getDoc } from 'firebase/firestore';
+import { collection, query, orderBy, addDoc, serverTimestamp, doc, getDoc } from 'firebase/firestore';
 import { AppLayout } from '@/components/app-layout';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -22,7 +22,7 @@ function ChatBubble({ message }: { message: ChatMessage }) {
              {!isMe && <div className="flex items-center justify-center h-8 w-8 rounded-full bg-primary text-primary-foreground flex-shrink-0"><Shield className="h-5 w-5"/></div>}
             <div
                 className={cn(
-                    "max-w-xs md:max-w-md p-3 rounded-2xl break-words",
+                    "max-w-xs md:max-w-md p-3 rounded-2xl break-words break-all",
                     isMe ? "bg-primary text-primary-foreground rounded-br-none" : "bg-muted rounded-bl-none"
                 )}
             >
@@ -75,11 +75,7 @@ export default function LiveChatPage() {
             const userDocRef = doc(firestore, 'users', user.uid);
             const userDocSnap = await getDoc(userDocRef);
             
-            if (!userDocSnap.exists()) {
-                throw new Error("आपका प्रोफ़ाइल नहीं मिला।");
-            }
-
-            const userData = userDocSnap.data();
+            const userData = userDocSnap.exists() ? userDocSnap.data() : null;
 
             const messageData = {
                 text: newMessage,
@@ -89,8 +85,8 @@ export default function LiveChatPage() {
 
             const sessionData = {
                 id: user.uid,
-                userName: userData.fullName || userData.email || "अज्ञात उपयोगकर्ता",
-                userEmail: userData.email || "कोई ईमेल नहीं",
+                userName: userData?.fullName || userData?.email || "अज्ञात उपयोगकर्ता",
+                userEmail: userData?.email || "कोई ईमेल नहीं",
                 lastMessage: newMessage,
                 lastMessageAt: serverTimestamp(),
                 isReadByAdmin: false,

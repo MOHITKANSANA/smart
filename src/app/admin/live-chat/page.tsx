@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -20,7 +21,7 @@ function ChatBubble({ message }: { message: ChatMessage }) {
              {!isAdminReply && <div className="flex items-center justify-center h-8 w-8 rounded-full bg-secondary text-secondary-foreground flex-shrink-0"><User className="h-5 w-5"/></div>}
             <div
                 className={cn(
-                    "max-w-xs md:max-w-md p-3 rounded-2xl break-words",
+                    "max-w-xs md:max-w-md p-3 rounded-2xl break-words break-all",
                     isAdminReply ? "bg-primary text-primary-foreground rounded-br-none" : "bg-muted rounded-bl-none"
                 )}
             >
