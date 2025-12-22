@@ -12,7 +12,6 @@ import { LoaderCircle, ChevronLeft, AlertTriangle, BookMarked } from 'lucide-rea
 import { useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import type { Tutorials } from '@/lib/types';
-import '../ai-notes-generator/preview/notes-style.css';
 
 
 export default function TutorialsPage() {
@@ -51,7 +50,7 @@ export default function TutorialsPage() {
             {renderedHtml && (
                 <div className="p-6 sm:p-8">
                   <div
-                    className="prose prose-sm sm:prose-base lg:prose-lg max-w-none colorful-notes dark:prose-invert break-words break-all"
+                    className="prose prose-sm sm:prose-base lg:prose-lg max-w-none dark:prose-invert break-words"
                     dangerouslySetInnerHTML={{ __html: renderedHtml }}
                   />
                 </div>
@@ -62,4 +61,3 @@ export default function TutorialsPage() {
     </AppLayout>
   );
 }
-

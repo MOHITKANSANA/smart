@@ -11,7 +11,6 @@ import { useToast } from '@/hooks/use-toast';
 import { generateOpenAINotes } from '@/ai/flows/openai-notes-generator';
 import type { NotesGeneratorInput } from '@/ai/flows/notes-generator.types';
 import { cn } from '@/lib/utils';
-import '../ai-notes-generator/preview/notes-style.css';
 
 
 interface Message {
@@ -33,7 +32,7 @@ function ChatBubble({ message }: { message: Message }) {
                     <p className="text-base">{renderedHtml}</p>
                 ) : (
                     <div
-                        className="prose prose-sm sm:prose-base max-w-none colorful-notes dark:prose-invert"
+                        className="prose prose-sm sm:prose-base max-w-none dark:prose-invert"
                         dangerouslySetInnerHTML={{ __html: renderedHtml }}
                     />
                 )}
