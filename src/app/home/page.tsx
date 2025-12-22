@@ -5,7 +5,7 @@
 import React, { useMemo, useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { LoaderCircle, ChevronRight, WandSparkles, DollarSign, Book, Users, Package, Library, History, MessageCircle, Settings, TrendingUp, UserCheck, BarChart2, FolderKanban } from "lucide-react";
+import { LoaderCircle, ChevronRight, WandSparkles, DollarSign, Book, Users, Package, Library, History, MessageCircle, Settings, TrendingUp, UserCheck, BarChart2, FolderKanban, FileText } from "lucide-react";
 import { collection, query, orderBy, limit, doc, getDoc, updateDoc, arrayUnion, writeBatch, where, getDocs } from "firebase/firestore";
 import { useCollection, useFirestore, useMemoFirebase, useUser } from "@/firebase";
 import { AppLayout } from "@/components/app-layout";
@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/accordion";
 import { Card, CardContent, CardTitle, CardDescription, CardHeader } from "@/components/ui/card";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { cn } from "@/lib/utils";
 import type { Paper, Combo, Tab, Payment, User as AppUser } from "@/lib/types";
 import { Button } from "@/components/ui/button";
