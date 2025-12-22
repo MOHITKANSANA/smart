@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { generateNotes } from '@/ai/flows/notes-generator';
+import { generateOpenAINotes } from '@/ai/flows/openai-notes-generator';
 import type { NotesGeneratorInput } from '@/ai/flows/notes-generator.types';
 import { AppLayout } from '@/components/app-layout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -57,7 +57,7 @@ export default function AINotesGeneratorPage() {
         description: 'इसमें थोड़ा समय लग सकता है। कृपया प्रतीक्षा करें।',
     });
     try {
-      const result = await generateNotes(values as NotesGeneratorInput);
+      const result = await generateOpenAINotes(values as NotesGeneratorInput);
       sessionStorage.setItem('generatedNotes', result.notes);
       sessionStorage.setItem('notesTopic', values.topic);
       router.push('/ai-notes-generator/preview');
@@ -79,7 +79,7 @@ export default function AINotesGeneratorPage() {
           <Button variant="ghost" size="icon" onClick={() => router.back()}>
             <ChevronLeft className="h-6 w-6" />
           </Button>
-          <h1 className="font-headline text-2xl font-bold gradient-text">AI Notes जेनरेटर (Gemini)</h1>
+          <h1 className="font-headline text-2xl font-bold gradient-text">AI Notes जेनरेटर (OpenAI)</h1>
         </div>
 
         <Card className="max-w-2xl mx-auto shadow-lg">

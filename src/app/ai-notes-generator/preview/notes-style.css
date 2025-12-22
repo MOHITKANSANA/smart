@@ -1,13 +1,13 @@
 /* Custom styles for the generated notes */
 .colorful-notes {
     line-height: 1.8;
-    color: var(--notes-text-color, #333333);
+    color: #333333;
     background-color: #ffffff; /* Clean white background */
 }
 
 .dark .colorful-notes {
-    color: var(--notes-text-color, hsl(var(--foreground) / 0.9));
-    background-color: hsl(var(--background));
+    color: hsl(var(--foreground) / 0.9);
+    background-color: hsl(var(--card));
 }
 
 .colorful-notes h1, .colorful-notes h2, .colorful-notes h3 {
@@ -15,7 +15,14 @@
     align-items: center;
     gap: 0.5em;
     font-family: var(--font-headline);
+    font-weight: 700;
+    color: #111827;
 }
+
+.dark .colorful-notes h1, .dark .colorful-notes h2, .dark .colorful-notes h3 {
+    color: hsl(var(--foreground));
+}
+
 
 .colorful-notes h1::before, .colorful-notes h2::before, .colorful-notes h3::before {
     font-size: 1.2em;
@@ -23,46 +30,33 @@
 
 .colorful-notes h1 {
     font-size: 2.2em;
-    font-weight: 800;
     margin-bottom: 1em;
-    border-bottom: 2px solid var(--notes-h1-color, #e0e0e0);
     padding-bottom: 0.4em;
-    color: var(--notes-h1-color, #111827);
+    border-bottom: 2px solid #e0e0e0;
 }
 .colorful-notes h1::before {
     content: '🎯';
 }
 .dark .colorful-notes h1 {
-    border-color: var(--notes-h1-color, hsl(var(--border)));
-    color: var(--notes-h1-color, hsl(var(--primary)));
+    border-color: hsl(var(--border));
 }
 
 .colorful-notes h2 {
     font-size: 1.8em;
-    font-weight: 700;
     margin-top: 1.8em;
     margin-bottom: 1em;
-    color: var(--notes-h2-color, #1f2937);
 }
 .colorful-notes h2::before {
     content: '📜';
 }
-.dark .colorful-notes h2 {
-    color: var(--notes-h2-color, #a7f3d0);
-}
 
 .colorful-notes h3 {
     font-size: 1.4em;
-    font-weight: 600;
     margin-top: 1.5em;
     margin-bottom: 0.8em;
-    color: #374151;
 }
 .colorful-notes h3::before {
     content: '✨';
-}
-.dark .colorful-notes h3 {
-     color: #f3f4f6;
 }
 
 .colorful-notes p {
@@ -71,12 +65,12 @@
 }
 
 .colorful-notes strong {
-    color: var(--notes-highlight-color, #0D63C6);
+    color: #000000;
     font-weight: 700;
 }
 
 .dark .colorful-notes strong {
-    color: var(--notes-highlight-color, hsl(var(--primary)));
+    color: hsl(var(--foreground));
 }
 
 
@@ -91,33 +85,37 @@
 }
 
 .colorful-notes ul > li::marker {
-    color: var(--notes-h2-color, #2C9D44);
+    color: #333;
     font-weight: bold;
+}
+.dark .colorful-notes ul > li::marker {
+    color: hsl(var(--muted-foreground));
 }
 
 .colorful-notes ol > li::marker {
-    color: var(--notes-h1-color, #0D63C6);
+    color: #333;
     font-weight: bold;
+}
+.dark .colorful-notes ol > li::marker {
+    color: hsl(var(--muted-foreground));
 }
 
 .colorful-notes a {
-    color: #17a2b8;
+    color: #0D63C6;
     text-decoration: underline;
-    text-decoration-color: #86d8e5;
     transition: color 0.2s;
 }
 
 .colorful-notes a:hover {
-    color: #0D63C6;
+    color: #0a4a94;
 }
 
 .dark .colorful-notes a {
-    color: hsl(var(--accent));
-    text-decoration-color: hsl(var(--accent) / 0.5);
+    color: hsl(var(--primary));
 }
 
 .dark .colorful-notes a:hover {
-    color: hsl(var(--primary));
+    color: hsl(var(--primary) / 0.8);
 }
 
 .colorful-notes code {
@@ -145,4 +143,13 @@
 .dark .colorful-notes blockquote {
     border-left: 4px solid hsl(var(--border));
     color: hsl(var(--muted-foreground));
+}
+
+.colorful-notes img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 0.5rem;
+    margin-top: 1em;
+    margin-bottom: 1em;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
