@@ -37,10 +37,11 @@ export default function RootLayout({
             <Toaster />
           </FirebaseClientProvider>
         </ThemeProvider>
-        
+        <Script 
+          src="https://sdk.cashfree.com/js/v3/cashfree-sbox.prod.js" 
+          strategy="beforeInteractive" 
+        />
       </body>
     </html>
   );
 }
-
-    
