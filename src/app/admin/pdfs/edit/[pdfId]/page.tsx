@@ -70,6 +70,16 @@ function PdfEditForm({ pdfId }: { pdfId: string }) {
 
   const form = useForm<z.infer<typeof pdfSchema>>({
     resolver: zodResolver(pdfSchema),
+    defaultValues: {
+        name: '',
+        description: '',
+        googleDriveLink: '',
+        paperId: '',
+        tabId: '',
+        subFolderId: '',
+        accessType: 'Free',
+        price: undefined,
+    }
   });
 
   const selectedPaperId = form.watch('paperId');

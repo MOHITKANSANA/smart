@@ -46,6 +46,11 @@ function EditComboForm() {
 
     const form = useForm<z.infer<typeof comboSchema>>({
         resolver: zodResolver(comboSchema),
+        defaultValues: {
+            name: '',
+            accessType: 'Free',
+            price: undefined
+        }
     });
     
     useEffect(() => {

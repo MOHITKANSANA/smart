@@ -40,6 +40,11 @@ export default function EditPaperPage() {
 
   const form = useForm<z.infer<typeof paperSchema>>({
     resolver: zodResolver(paperSchema),
+    defaultValues: {
+        name: '',
+        description: '',
+        paperNumber: 1,
+    }
   });
 
   useEffect(() => {
@@ -126,7 +131,7 @@ export default function EditPaperPage() {
                     <FormItem>
                       <FormLabel>पेपर नंबर</FormLabel>
                       <FormControl>
-                        <Input type="number" placeholder="जैसे: 1" {...field} />
+                        <Input type="number" placeholder="जैसे: 1" {...field} value={field.value || ''} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

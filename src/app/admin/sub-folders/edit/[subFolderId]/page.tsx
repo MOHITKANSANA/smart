@@ -53,6 +53,11 @@ export default function EditSubFolderPage() {
 
   const form = useForm<z.infer<typeof subFolderSchema>>({
     resolver: zodResolver(subFolderSchema),
+    defaultValues: {
+        name: '',
+        paperId: '',
+        tabId: '',
+    }
   });
 
   const selectedPaperId = form.watch('paperId');

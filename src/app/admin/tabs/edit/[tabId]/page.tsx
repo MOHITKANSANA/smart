@@ -49,6 +49,10 @@ export default function EditTabPage() {
 
   const form = useForm<z.infer<typeof tabSchema>>({
     resolver: zodResolver(tabSchema),
+    defaultValues: {
+        name: '',
+        paperId: ''
+    }
   });
 
   useEffect(() => {
