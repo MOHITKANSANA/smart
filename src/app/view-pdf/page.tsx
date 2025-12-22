@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { Suspense } from 'react';
@@ -56,8 +57,14 @@ function PDFViewer() {
 }
 
 export default function ViewPdfPage() {
+  const router = useRouter();
   return (
     <main className="flex-1 flex flex-col h-screen bg-background">
+        <div className="p-2 border-b bg-background/80 backdrop-blur-sm sticky top-0 z-10">
+          <Button variant="ghost" size="icon" onClick={() => router.back()}>
+            <ChevronLeft className="h-6 w-6" />
+          </Button>
+        </div>
         <Suspense fallback={<div className="flex h-full items-center justify-center">Loading PDF...</div>}>
         <PDFViewer />
         </Suspense>

@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useMemo, useState, useEffect, Suspense } from "react";
@@ -15,8 +16,8 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Card, CardContent, CardTitle, CardDescription, CardHeader } from "@/components/ui/card";
-import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartStyle } from "@/components/ui/chart";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { cn } from "@/lib/utils";
 import type { Paper, Combo, Tab, Payment, User as AppUser } from "@/lib/types";
 import { Button } from "@/components/ui/button";
@@ -297,19 +298,21 @@ function AdminHomePage() {
             getDocs(paymentsQuery)
         ]);
 
-        setUsers(usersSnapshot.docs.map(d => d.data() as AppUser));
-        setPayments(paymentsSnapshot.docs.map(d => d.data() as Payment));
+        setUsers(usersSnapshot.docs.map(d => ({...d.data(), id: d.id } as AppUser)));
+        setPayments(paymentsSnapshot.docs.map(d => ({...d.data(), id: d.id } as Payment)));
         setIsLoading(false);
     }
     fetchData();
   }, [firestore]);
   
   const managementSections = [
-    { title: "विषय, टॉपिक्स, PDFs", icon: Book, link: "/admin/papers" },
+    { title: "विषय (Papers)", icon: Book, link: "/admin/papers" },
+    { title: "टॉपिक्स (Tabs)", icon: FolderKanban, link: "/admin/tabs" },
+    { title: "सब-फोल्डर्स", icon: FolderKanban, link: "/admin/sub-folders" },
+    { title: "PDF ডকুমেন্টস", icon: FileText, link: "/admin/pdfs" },
     { title: "PDF कॉम्बो", icon: Package, link: "/admin/combos" },
     { title: "लाइव चैट", icon: MessageCircle, link: "/admin/live-chat" },
     { title: "ट्रांजेक्शन हिस्ट्री", icon: History, link: "/admin/transactions" },
-    { title: "सभी सेटिंग्स", icon: Settings, link: "/admin" },
   ];
 
   const { totalRevenue, monthlyRevenueData } = useMemo(() => {
@@ -331,60 +334,83 @@ function AdminHomePage() {
 
     return { totalRevenue: total, monthlyRevenueData: chartData };
   }, [payments]);
-
-  const analytics = [
-    { title: "कुल यूज़र", value: isLoading ? <LoaderCircle className="h-5 w-5 animate-spin"/> : users?.length ?? 0, icon: Users, gradient: "from-green-500 to-teal-400" },
-    { title: "सफल ट्रांजेक्शन", value: isLoading ? <LoaderCircle className="h-5 w-5 animate-spin"/> : payments?.length ?? 0, icon: UserCheck, gradient: "from-blue-500 to-cyan-400" },
-    { title: "कुल कमाई", value: isLoading ? <LoaderCircle className="h-5 w-5 animate-spin"/> : `₹${totalRevenue.toFixed(2)}`, icon: DollarSign, gradient: "from-red-500 to-pink-500" },
-  ];
   
   const chartConfig = {
     revenue: {
         label: "कमाई",
         color: "hsl(var(--primary))",
+    },
+    users: {
+        label: "नए उपयोगकर्ता",
+        color: "hsl(var(--accent))",
     }
   } satisfies React.ComponentProps<typeof ChartContainer>["config"];
 
   return (
     <main className="flex-1 p-4 sm:p-6 space-y-6 bg-muted/20">
       <h1 className="font-headline text-3xl font-bold text-foreground">एडमिन डैशबोर्ड</h1>
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {analytics.map(item => <Card key={item.title} className={cn("text-white border-0 shadow-lg", item.gradient)}><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">{item.title}</CardTitle><item.icon className="h-5 w-5 opacity-80" /></CardHeader><CardContent><div className="text-3xl font-bold">{item.value}</div></CardContent></Card>)}
+      
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <Card className="text-white bg-gradient-to-tr from-green-500 to-teal-400 border-0 shadow-lg">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">कुल यूज़र</CardTitle><Users className="h-5 w-5 opacity-80" /></CardHeader>
+          <CardContent><div className="text-3xl font-bold">{isLoading ? <LoaderCircle className="h-8 w-8 animate-spin"/> : users?.length ?? 0}</div></CardContent>
+        </Card>
+        <Card className="text-white bg-gradient-to-tr from-blue-500 to-cyan-400 border-0 shadow-lg">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">सफल ट्रांजेक्शन</CardTitle><UserCheck className="h-5 w-5 opacity-80" /></CardHeader>
+          <CardContent><div className="text-3xl font-bold">{isLoading ? <LoaderCircle className="h-8 w-8 animate-spin"/> : payments?.length ?? 0}</div></CardContent>
+        </Card>
+        <Card className="text-white bg-gradient-to-tr from-red-500 to-pink-500 border-0 shadow-lg">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">कुल कमाई</CardTitle><DollarSign className="h-5 w-5 opacity-80" /></CardHeader>
+          <CardContent><div className="text-3xl font-bold">{isLoading ? <LoaderCircle className="h-8 w-8 animate-spin"/> : `₹${totalRevenue.toFixed(2)}`}</div></CardContent>
+        </Card>
       </div>
 
-       <Card className="shadow-lg">
-        <CardHeader>
-          <CardTitle>मासिक कमाई</CardTitle>
-          <CardDescription>पिछले कुछ महीनों में हुई कमाई का विश्लेषण।</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ChartContainer config={chartConfig} className="h-64 w-full">
-            <BarChart accessibilityLayer data={monthlyRevenueData} margin={{ top: 20, right: 20, left: -10, bottom: 0}}>
-                <CartesianGrid vertical={false} />
-                <XAxis dataKey="month" tickLine={false} tickMargin={10} axisLine={false} />
-                <YAxis tickLine={false} tickMargin={10} axisLine={false} tickFormatter={(value) => `₹${value / 1000}k`}/>
-                 <ChartTooltip content={<ChartTooltipContent />} />
-                <Bar dataKey="revenue" fill="var(--color-revenue)" radius={4} />
-            </BarChart>
-          </ChartContainer>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader><CardTitle>त्वरित लिंक</CardTitle><CardDescription>यहां से ऐप के मुख्य भागों को मैनेज करें।</CardDescription></CardHeader>
-        <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {managementSections.map(section => (
-            <Card key={section.title} className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => router.push(section.link)}>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <div className="space-y-1">
-                  <CardTitle className="text-lg">{section.title}</CardTitle>
-                </div>
-                <section.icon className="w-8 h-8 text-muted-foreground" />
-              </CardHeader>
-            </Card>
-          ))}
-        </CardContent>
-      </Card>
+      <div className="grid grid-cols-1 gap-6">
+        <Card className="shadow-lg">
+          <CardHeader>
+            <CardTitle>मासिक कमाई</CardTitle>
+            <CardDescription>पिछले कुछ महीनों में हुई कमाई का विश्लेषण।</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ChartContainer config={chartConfig} className="h-64 w-full">
+              <BarChart accessibilityLayer data={monthlyRevenueData} margin={{ top: 20, right: 20, left: -10, bottom: 0}}>
+                  <defs>
+                    <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="var(--color-revenue)" stopOpacity={0.8}/>
+                      <stop offset="95%" stopColor="var(--color-revenue)" stopOpacity={0.1}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid vertical={false} strokeDasharray="3 3" />
+                  <XAxis dataKey="month" tickLine={false} tickMargin={10} axisLine={false} />
+                  <YAxis tickLine={false} tickMargin={10} axisLine={false} tickFormatter={(value) => `₹${Number(value) / 1000}k`}/>
+                  <ChartTooltip cursor={{fill: 'hsl(var(--muted))', radius: 4}} content={<ChartTooltipContent />} />
+                  <Bar dataKey="revenue" fill="url(#colorRevenue)" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ChartContainer>
+          </CardContent>
+        </Card>
+      </div>
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {managementSections.map(section => (
+          <Card key={section.title} className="hover:shadow-lg transition-shadow cursor-pointer group" onClick={() => router.push(section.link)}>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div className="space-y-1">
+                <CardTitle className="text-lg group-hover:text-primary">{section.title}</CardTitle>
+              </div>
+              <section.icon className="w-8 h-8 text-muted-foreground group-hover:text-primary" />
+            </CardHeader>
+          </Card>
+        ))}
+         <Card className="hover:shadow-lg transition-shadow cursor-pointer group" onClick={() => router.push('/admin')}>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div className="space-y-1">
+                <CardTitle className="text-lg group-hover:text-primary">सभी सेटिंग्स</CardTitle>
+              </div>
+              <Settings className="w-8 h-8 text-muted-foreground group-hover:text-primary" />
+            </CardHeader>
+          </Card>
+      </div>
     </main>
   );
 }

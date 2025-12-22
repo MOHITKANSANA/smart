@@ -1,10 +1,11 @@
 
+
 "use client";
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { collection, query, orderBy, getDocs } from "firebase/firestore";
-import { useFirestore, useMemoFirebase } from "@/firebase";
+import { useFirestore } from "@/firebase";
 import { AppLayout } from "@/components/app-layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -39,7 +40,6 @@ export default function TransactionsPage() {
     const fetchAllData = async () => {
       setIsLoading(true);
       try {
-        // Fetch all necessary data in parallel
         const paymentsQuery = query(collection(firestore, "payments"), orderBy("createdAt", "desc"));
         const usersQuery = collection(firestore, "users");
         
@@ -49,16 +49,15 @@ export default function TransactionsPage() {
         ]);
 
         const payments = paymentsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Payment));
-        const users = usersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User));
-        const usersMap = new Map(users.map(u => [u.id, u]));
+        const usersMap = new Map(usersSnapshot.docs.map(doc => [doc.id, doc.data() as User]));
 
-        // We also need all combos and pdfs to get their names
+        const itemsMap = new Map<string, { name: string }>();
         const combosSnapshot = await getDocs(collection(firestore, "combos"));
-        const combos = combosSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Combo));
-        const itemsMap = new Map<string, { name: string }>(combos.map(c => [c.id, { name: c.name }]));
+        combosSnapshot.forEach(doc => {
+            const comboData = doc.data() as Combo;
+            itemsMap.set(doc.id, { name: comboData.name });
+        });
 
-        // This is complex: fetching all PDFs from all sub-folders.
-        // For simplicity in this context, we will try to fetch them. In a real large-scale app, this should be optimized.
         const papersSnapshot = await getDocs(collection(firestore, "papers"));
         for (const paperDoc of papersSnapshot.docs) {
           const tabsSnapshot = await getDocs(collection(paperDoc.ref, "tabs"));
@@ -74,7 +73,6 @@ export default function TransactionsPage() {
           }
         }
         
-        // Enrich payment data
         const enriched = payments.map(p => {
           const user = usersMap.get(p.userId);
           const item = itemsMap.get(p.itemId);

@@ -29,15 +29,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-  DialogClose,
-} from "@/components/ui/dialog";
-import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -49,73 +40,11 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { PlusCircle, LoaderCircle, Edit, Trash2, ChevronLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Paper } from "@/lib/types";
 import { useRouter } from "next/navigation";
 
-const paperSchema = z.object({
-  id: z.string().optional(),
-  name: z.string().min(1, "विषय का नाम आवश्यक है।"),
-  paperNumber: z.preprocess(
-    (a) => parseInt(z.string().parse(a), 10),
-    z.number().min(1, "पेपर नंबर आवश्यक है।")
-  ),
-});
-
-function PaperForm({ paper, onFinished }: { paper?: Paper | null, onFinished: () => void }) {
-  const { toast } = useToast();
-  const firestore = useFirestore();
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const papersQuery = useMemoFirebase(() => query(collection(firestore, "papers")), [firestore]);
-  const { data: papers } = useCollection<Paper>(papersQuery);
-
-  const form = useForm<z.infer<typeof paperSchema>>({
-    resolver: zodResolver(paperSchema),
-    defaultValues: paper ? {
-      id: paper.id,
-      name: paper.name,
-      paperNumber: paper.paperNumber,
-    } : {
-      name: "",
-      paperNumber: (papers?.length || 0) + 1,
-    },
-  });
-  
-  async function onSubmit(values: z.infer<typeof paperSchema>) {
-    setIsSubmitting(true);
-    try {
-      if (paper) { // Editing existing paper
-        const paperRef = doc(firestore, "papers", paper.id);
-        await setDoc(paperRef, values, { merge: true });
-        toast({ title: "सफलता!", description: `विषय "${values.name}" सफलतापूर्वक अपडेट हो गया है।` });
-      } else { // Adding new paper
-        const newPaper = { ...values, createdAt: serverTimestamp() };
-        await addDoc(collection(firestore, "papers"), newPaper);
-        toast({ title: "सफलता!", description: `विषय "${values.name}" सफलतापूर्वक जोड़ दिया गया है।` });
-      }
-      onFinished();
-    } catch (error) {
-      toast({ variant: "destructive", title: "त्रुटि!", description: "कुछ गलत हुआ।" });
-    } finally {
-      setIsSubmitting(false);
-    }
-  }
-
-  return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-        <FormField control={form.control} name="name" render={({ field }) => (<FormItem><FormLabel>विषय का नाम</FormLabel><FormControl><Input placeholder="जैसे: Paper 1, इतिहास" {...field} /></FormControl><FormMessage /></FormItem>)}/>
-        <FormField control={form.control} name="paperNumber" render={({ field }) => (<FormItem><FormLabel>पेपर नंबर (क्रम के लिए)</FormLabel><FormControl><Input type="number" placeholder="1" {...field} /></FormControl><FormMessage /></FormItem>)}/>
-        <DialogFooter>
-            <Button type="button" variant="ghost" onClick={onFinished}>रद्द करें</Button>
-            <Button type="submit" disabled={isSubmitting}>{isSubmitting ? <LoaderCircle className="animate-spin" /> : paper ? "अपडेट करें" : "सेव करें"}</Button>
-        </DialogFooter>
-      </form>
-    </Form>
-  )
-}
 
 export default function ManagePapersPage() {
   const router = useRouter();
@@ -123,19 +52,6 @@ export default function ManagePapersPage() {
   const { toast } = useToast();
   const papersQuery = useMemoFirebase(() => query(collection(firestore, "papers"), orderBy("paperNumber")), [firestore]);
   const { data: papers, isLoading: papersLoading, setData: setPapers } = useCollection<Paper>(papersQuery);
-
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [selectedPaper, setSelectedPaper] = useState<Paper | null>(null);
-
-  const handleAddNew = () => {
-    setSelectedPaper(null);
-    setDialogOpen(true);
-  };
-  
-  const handleEdit = (paper: Paper) => {
-    setSelectedPaper(paper);
-    setDialogOpen(true);
-  };
 
   const handleDelete = async (paperToDelete: Paper) => {
     try {
@@ -185,7 +101,7 @@ export default function ManagePapersPage() {
           </CardHeader>
           <CardContent>
             <div className="flex justify-end mb-4">
-              <Button onClick={handleAddNew}>
+              <Button onClick={() => router.push('/admin/papers/new')}>
                 <PlusCircle className="mr-2 h-4 w-4" /> नया विषय जोड़ें
               </Button>
             </div>
@@ -197,7 +113,7 @@ export default function ManagePapersPage() {
                     <p className="font-semibold break-words">{p.paperNumber}. {p.name}</p>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0 ml-4">
-                    <Button size="sm" variant="outline" onClick={() => handleEdit(p)}><Edit className="h-4 w-4"/></Button>
+                    <Button size="sm" variant="outline" onClick={() => router.push(`/admin/papers/edit/${p.id}`)}><Edit className="h-4 w-4"/></Button>
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
                         <Button size="sm" variant="destructive"><Trash2 className="h-4 w-4"/></Button>
@@ -221,19 +137,6 @@ export default function ManagePapersPage() {
             </div>
           </CardContent>
         </Card>
-
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>{selectedPaper ? 'विषय एडिट करें' : 'नया विषय जोड़ें'}</DialogTitle>
-            </DialogHeader>
-            <PaperForm paper={selectedPaper} onFinished={() => {
-                setDialogOpen(false);
-                // No need for router.refresh(), useCollection will update automatically
-            }} />
-          </DialogContent>
-        </Dialog>
-
       </main>
     </AppLayout>
   );

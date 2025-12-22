@@ -24,13 +24,14 @@ import {
   useMemoFirebase,
   useDoc,
 } from "@/firebase";
-import { addDocumentNonBlocking, setDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import { AppLayout } from "@/components/app-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { FileText, Book, Users, DollarSign, Package, LoaderCircle, Send, Library, FolderKanban, ShieldCheck, KeyRound, Settings, Palette, History, RefreshCw, BookMarked, MessageCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -42,11 +43,6 @@ const securityCodeSchema = z.object({
   code: z.string().min(1, "कृपया सिक्योरिटी कोड डालें।"),
 });
 
-const notificationSchema = z.object({
-    title: z.string().min(1, "सूचना का शीर्षक आवश्यक है।"),
-    message: z.string().min(1, "सूचना का संदेश आवश्यक है।"),
-    imageUrl: z.string().url("कृपया एक मान्य इमेज URL डालें।").optional().or(z.literal('')),
-});
 
 const colorCustomizerSchema = z.object({
     h1Color: z.string(),
@@ -227,7 +223,8 @@ function TutorialsManager() {
     async function onSubmit(values: z.infer<typeof tutorialsSchema>) {
         setIsSubmitting(true);
         try {
-            await setDocumentNonBlocking(tutorialRef, {
+            const tutorialRef = doc(firestore, 'settings', 'tutorials');
+            await setDoc(tutorialRef, {
                 content: values.content,
                 updatedAt: serverTimestamp(),
             });

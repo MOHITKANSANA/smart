@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React from 'react';
@@ -6,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import { marked } from 'marked';
 import { AppLayout } from '@/components/app-layout';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { LoaderCircle, ChevronLeft, AlertTriangle, BookMarked } from 'lucide-react';
 import { useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
@@ -50,7 +51,7 @@ export default function TutorialsPage() {
             {renderedHtml && (
                 <div className="p-6 sm:p-8">
                   <div
-                    className="prose prose-sm sm:prose-base lg:prose-lg max-w-none colorful-notes dark:prose-invert"
+                    className="prose prose-sm sm:prose-base lg:prose-lg max-w-none colorful-notes dark:prose-invert break-words"
                     dangerouslySetInnerHTML={{ __html: renderedHtml }}
                   />
                 </div>
@@ -61,4 +62,3 @@ export default function TutorialsPage() {
     </AppLayout>
   );
 }
-
