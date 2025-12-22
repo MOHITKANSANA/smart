@@ -38,8 +38,9 @@ const AdGatewayPageContent = () => {
 
     const handleProceedToPdf = () => {
         if (pdfUrl) {
-            // Redirect to the in-app PDF viewer page
-            router.push(`/view-pdf?url=${encodeURIComponent(pdfUrl)}`);
+            // Redirect to the in-app PDF viewer page, now using the public domain
+            const viewPdfUrl = `https://pcsnote.netlify.app/view-pdf?url=${encodeURIComponent(pdfUrl)}`;
+            router.push(viewPdfUrl);
         }
     };
     
