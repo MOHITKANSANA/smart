@@ -120,7 +120,7 @@ export default function ManageSubFoldersPage() {
               allSubFolders.map(sf => (
                 <Card key={sf.id} className="flex items-center justify-between p-3">
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold break-words">{sf.name}</p>
+                    <p className="font-semibold break-all">{sf.name}</p>
                     <p className="text-sm text-muted-foreground break-words">टॉपिक: {getTabName(sf.tabId)} | विषय: {getPaperName(sf.paperId)}</p>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0 ml-4">
