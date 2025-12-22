@@ -2,7 +2,7 @@
 
 import { firebaseConfig } from '@/firebase/config';
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
-import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, RecaptchaVerifier, signInWithPhoneNumber } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore'
 
 // IMPORTANT: DO NOT MODIFY THIS FUNCTION
@@ -50,4 +50,6 @@ export * from './errors';
 export * from './error-emitter';
 
 // Re-exporting auth functions for convenience
-export { createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail };
+export { createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, RecaptchaVerifier, signInWithPhoneNumber };
+
+    
