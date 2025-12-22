@@ -61,7 +61,6 @@ export default function PaymentDialog({ isOpen, setIsOpen, item, itemType }: Pay
         if (typeof window === "undefined") {
             return;
         }
-
         setIsProcessing(true);
 
         const loaded = await loadCashfree();
@@ -125,7 +124,6 @@ export default function PaymentDialog({ isOpen, setIsOpen, item, itemType }: Pay
             });
             cashfree.checkout({
                 paymentSessionId: data.payment_session_id,
-                redirectTarget: "_modal"
             });
              setIsProcessing(false); // Enable button again after checkout is initiated
 
