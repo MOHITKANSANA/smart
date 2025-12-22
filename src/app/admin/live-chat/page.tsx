@@ -177,10 +177,15 @@ export default function AdminLiveChatPage() {
                             >
                                 <div className="flex justify-between items-start">
                                     <p className={cn("font-semibold break-words", !session.isReadByAdmin && "text-primary font-bold")}>{session.userName}</p>
-                                     {!session.isReadByAdmin && <div className="h-2.5 w-2.5 rounded-full bg-blue-500 flex-shrink-0 ml-2 mt-1.5"></div>}
+                                     {!session.isReadByAdmin && <div className="h-2.5 w-2.5 rounded-full bg-green-500 flex-shrink-0 ml-2 mt-1.5"></div>}
                                 </div>
 
-                                <p className="text-sm text-muted-foreground truncate">{session.lastMessage}</p>
+                                {!session.isReadByAdmin ? (
+                                    <p className="text-sm font-bold text-primary">नया संदेश</p>
+                                ) : (
+                                    <p className="text-sm text-muted-foreground truncate">{session.lastMessage}</p>
+                                )}
+
                                 <p className="text-xs text-muted-foreground mt-1">
                                     {session.lastMessageAt ? formatDistanceToNow(session.lastMessageAt.toDate(), { addSuffix: true }) : ''}
                                 </p>
