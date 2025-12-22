@@ -19,7 +19,8 @@ export async function POST(req: NextRequest) {
     }
     
     // The return_url points to the home page. The client-side will handle verification.
-    const returnUrl = new URL(`/home?order_id=${orderId}&payment_check=true`, req.nextUrl.origin).toString();
+    // Using the {order_id} placeholder as recommended by Cashfree for a stable URL.
+    const returnUrl = "https://app.learnx.co.in/home?order_id={order_id}";
 
     // 2. Construct the request body for Cashfree API
     const requestBody = {
