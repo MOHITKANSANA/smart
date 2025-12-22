@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { LoaderCircle, ShoppingCart } from 'lucide-react';
 import type { Combo, PdfDocument, User as AppUser } from '@/lib/types';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
-import { doc, setDoc, serverTimestamp, writeBatch } from 'firebase/firestore';
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 
 declare global {
@@ -23,6 +23,23 @@ declare global {
     Cashfree: any;
   }
 }
+
+const loadCashfree = () => {
+  return new Promise((resolve) => {
+    if (document.getElementById("cashfree-js")) {
+      resolve(true);
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.id = "cashfree-js";
+    script.src = "https://sdk.cashfree.com/js/v3/cashfree.js";
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+};
+
 
 interface PaymentDialogProps {
   isOpen: boolean;
@@ -41,7 +58,19 @@ export default function PaymentDialog({ isOpen, setIsOpen, item, itemType }: Pay
     const { data: appUser } = useDoc<AppUser>(userDocRef);
 
     const handlePayment = async () => {
+        if (typeof window === "undefined") {
+            return;
+        }
+
         setIsProcessing(true);
+
+        const loaded = await loadCashfree();
+        if (!loaded) {
+            toast({ variant: 'destructive', title: 'त्रुटि', description: 'पेमेंट गेटवे लोड नहीं हो सका। कृपया पृष्ठ को रीफ़्रेश करें।' });
+            setIsProcessing(false);
+            return;
+        }
+
         if (!user) {
             toast({ variant: 'destructive', title: 'त्रुटि', description: 'कृपया भुगतान करने के लिए लॉगिन करें।' });
             setIsProcessing(false);
@@ -64,12 +93,7 @@ export default function PaymentDialog({ isOpen, setIsOpen, item, itemType }: Pay
                 updatedAt: serverTimestamp(),
             });
 
-            // 2. Check if Cashfree SDK is available
-            if (typeof window.Cashfree === 'undefined') {
-                throw new Error('पेमेंट गेटवे लोड नहीं हो सका। कृपया पृष्ठ को रीफ़्रेश करें।');
-            }
-
-            // 3. Create order with the backend to get a session ID
+            // 2. Create order with the backend to get a session ID
             const res = await fetch("/api/create-order", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -92,14 +116,13 @@ export default function PaymentDialog({ isOpen, setIsOpen, item, itemType }: Pay
             const data = await res.json();
             
             if (!data.payment_session_id) {
-                throw new Error('सर्वर से payment_session_id नहीं मिला।');
+                throw new Error('सर्वर से भुगतान सत्र बनाने में विफल।');
             }
 
             // 4. Initiate Cashfree checkout
             const cashfree = new window.Cashfree({ mode: "production" });
             cashfree.checkout({
                 paymentSessionId: data.payment_session_id,
-                redirectTarget: "_self",
             });
 
         } catch (error: any) {
@@ -109,7 +132,7 @@ export default function PaymentDialog({ isOpen, setIsOpen, item, itemType }: Pay
                 title: 'भुगतान में समस्या आई',
                 description: error.message || 'एक अज्ञात त्रुटि हुई।',
             });
-            // If something fails before redirect, update the record to FAILED
+            // If something fails, update the record to FAILED
             await setDoc(paymentRef, { status: 'FAILED', error: error.message, updatedAt: serverTimestamp() }, { merge: true });
         } finally {
             setIsProcessing(false);
