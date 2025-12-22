@@ -3,7 +3,6 @@
 "use client";
 
 import * as React from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { useTheme } from "next-themes";
@@ -23,15 +22,15 @@ import {
   CircleDollarSign,
   Menu,
   MessageCircle,
-  BookMarked
+  BookMarked,
+  History
 } from "lucide-react";
 import { useUser, useAuth, useDoc, useFirestore, useMemoFirebase } from "@/firebase";
-import { doc } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 
 import {
   SidebarProvider,
   Sidebar,
-  SidebarHeader,
   SidebarContent,
   SidebarFooter,
   SidebarMenu,
@@ -60,25 +59,25 @@ import { cn } from "@/lib/utils";
 import type { User as AppUser } from '@/lib/types';
 
 
-const menuItems = [
+const userMenuItems = [
   { icon: Home, label: "होम", href: "/home" },
   { icon: BookCopy, label: "All Combos", href: "/combos" },
   { icon: MessageCircle, label: "लाइव चैट", href: "/live-chat"},
   { icon: BookMarked, label: "इम्पोर्टेन्ट ट्यूटोरियल", href: "/tutorials" },
 ];
 
+const adminMenuItems = [
+  { icon: Home, label: "होम", href: "/home" },
+  { icon: MessageCircle, label: "एडमिन लाइव चैट", href: "/admin/live-chat" },
+  { icon: History, label: "ट्रांजेक्शन हिस्ट्री", href: "/admin/transactions" },
+];
+
+
 const bottomMenuItems = [
-    { icon: Settings, label: "सेटिंग्स", href: "#" },
-    { icon: UserIcon, label: "प्रोफाइल", href: "#" },
     { icon: FileText, label: "Privacy Policy", href: "/privacy-policy" },
     { icon: ShieldCheck, label: "Terms & Conditions", href: "/terms-conditions" },
     { icon: CircleDollarSign, label: "Refund Policy", href: "/refund-policy" },
 ]
-
-const adminItems = [
-  { icon: Shield, label: "एडमिन डैशबोर्ड", href: "/admin" },
-  { icon: MessageCircle, label: "एडमिन लाइव चैट", href: "/admin/live-chat" },
-];
 
 // Helper function to generate a color from a string (e.g., user ID)
 const generateColorFromString = (str: string) => {
@@ -126,6 +125,9 @@ function AppSidebar() {
   const router = useRouter();
   const firestore = useFirestore();
   const { setOpenMobile } = useSidebar();
+  
+  const [isAdmin, setIsAdmin] = React.useState(false);
+  const [isLoadingRole, setIsLoadingRole] = React.useState(true);
 
   const userDocRef = useMemoFirebase(() => {
       if (!user) return null;
@@ -133,6 +135,18 @@ function AppSidebar() {
   }, [firestore, user]);
 
   const { data: appUser } = useDoc<AppUser>(userDocRef);
+  
+  React.useEffect(() => {
+    if (appUser) {
+        setIsAdmin(appUser.role === 'admin');
+        setIsLoadingRole(false);
+    } else if (user) {
+        // If appUser is not loaded yet, wait.
+        setIsLoadingRole(true);
+    } else {
+        setIsLoadingRole(false);
+    }
+  }, [appUser, user]);
 
   const handleLogout = async () => {
     localStorage.removeItem("admin_security_verified");
@@ -140,7 +154,6 @@ function AppSidebar() {
     router.push('/login');
   };
 
-  const userAvatar = PlaceHolderImages.find(img => img.id === 'user-avatar-1');
   const userName = appUser?.fullName || user?.email || "User";
   const userRole = appUser?.role;
   const userInitial = (appUser?.fullName || user?.email || "U").charAt(0).toUpperCase();
@@ -150,13 +163,14 @@ function AppSidebar() {
   const handleMenuItemClick = () => {
     setOpenMobile(false);
   }
+  
+  const currentMenuItems = isAdmin ? adminMenuItems : userMenuItems;
 
   return (
     <div className="bg-gradient-to-b from-blue-900 via-purple-900 to-teal-900 h-full flex flex-col">
-      <SidebarHeader className="p-4 border-b border-white/10">
+      <div className="p-4 border-b border-white/10">
         <div className="flex items-center gap-4">
           <Avatar className="h-12 w-12 border-2 border-white/50">
-            {userAvatar && false ? <AvatarImage src={userAvatar.imageUrl} alt={userName} data-ai-hint={userAvatar.imageHint}/> : null}
             <AvatarFallback style={{ backgroundColor: avatarBgColor }} className="text-white font-bold text-lg">
                 {userInitial}
             </AvatarFallback>
@@ -166,37 +180,19 @@ function AppSidebar() {
             <p className="text-xs text-white/70">{userRole === 'admin' ? 'एडमिनिस्ट्रेटर' : 'MPSE / State Exam'}</p>
           </div>
         </div>
-      </SidebarHeader>
+      </div>
 
       <SidebarContent className="p-2 flex-1">
-        <SidebarMenu>
-          {menuItems.map((item) => (
-            <SidebarMenuItem key={item.label}>
-              <Link href={item.href} className="w-full" onClick={handleMenuItemClick}>
-                <SidebarMenuButton
-                  className="text-sidebar-foreground hover:bg-white/10 hover:text-white data-[active=true]:bg-white/20 data-[active=true]:text-white"
-                  isActive={pathname === item.href}
-                >
-                  <item.icon className="w-5 h-5" />
-                  <span>{item.label}</span>
-                </SidebarMenuButton>
-              </Link>
-            </SidebarMenuItem>
-          ))}
-        </SidebarMenu>
-
-        {userRole === 'admin' && (
-          <>
-            <div className="px-4 my-2">
-                <p className="text-xs font-semibold text-white/50 tracking-wider uppercase">एडमिन</p>
-            </div>
+         {isLoadingRole ? (
+            <div className="flex justify-center items-center h-full"><LoaderCircle className="w-6 h-6 animate-spin text-white"/></div>
+         ) : (
             <SidebarMenu>
-              {adminItems.map((item) => (
+              {currentMenuItems.map((item) => (
                 <SidebarMenuItem key={item.label}>
                   <Link href={item.href} className="w-full" onClick={handleMenuItemClick}>
                     <SidebarMenuButton
                       className="text-sidebar-foreground hover:bg-white/10 hover:text-white data-[active=true]:bg-white/20 data-[active=true]:text-white"
-                      isActive={pathname.startsWith(item.href)}
+                      isActive={pathname === item.href}
                     >
                       <item.icon className="w-5 h-5" />
                       <span>{item.label}</span>
@@ -205,9 +201,7 @@ function AppSidebar() {
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>
-          </>
-        )}
-        
+         )}
       </SidebarContent>
       <SidebarFooter className="p-4 border-t border-white/10 mt-auto">
          <SidebarMenu>
@@ -261,7 +255,6 @@ function TopBar() {
     router.push('/login');
   };
 
-  const userAvatar = PlaceHolderImages.find(img => img.id === 'user-avatar-1');
   const userName = appUser?.fullName || user?.email || "User";
   const userInitial = (appUser?.fullName || user?.email || "U").charAt(0).toUpperCase();
 
@@ -273,11 +266,14 @@ function TopBar() {
       <div className="flex-1 flex items-center gap-2">
          <h1 className="font-headline text-xl font-bold gradient-text">MPPSC & Civil Notes</h1>
       </div>
+       <Button variant="ghost" className="relative text-white bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 hover:text-white" onClick={() => router.push('/live-chat')}>
+          <MessageCircle className="w-5 h-5 mr-2"/>
+          लाइव चैट
+       </Button>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" className="relative h-10 w-10 rounded-full">
             <Avatar className="h-10 w-10">
-               {userAvatar && false ? <AvatarImage src={userAvatar.imageUrl} alt={userName} data-ai-hint={userAvatar.imageHint}/> : null}
                 <AvatarFallback style={{ backgroundColor: avatarBgColor }} className="text-white font-bold text-lg">
                     {userInitial}
                 </AvatarFallback>
@@ -298,31 +294,24 @@ function TopBar() {
   );
 }
 
-export function AppLayout({ children }: { children: React.ReactNode }) {
+export function AppLayout({ children, hideHeader = false }: { children: React.ReactNode, hideHeader?: boolean }) {
   const { isUserLoading, user } = useUser();
   const router = useRouter();
   const pathname = usePathname();
 
-  // This effect handles redirection based on auth state.
   React.useEffect(() => {
-    // If auth state is still loading, do nothing.
     if (isUserLoading) {
       return;
     }
-    // If auth is loaded and there is no user, redirect to login page,
-    // but only if they aren't already on the login or splash page.
     if (!user && pathname !== '/login' && pathname !== '/') {
         router.replace('/login');
     }
-    // If a user is logged in and they are on the login or splash page,
-    // redirect them to the home page.
     if (user && (pathname === '/login' || pathname === '/')) {
       router.replace('/home');
     }
 
   }, [isUserLoading, user, router, pathname]);
 
-  // While checking auth state, show a global loader for protected pages.
   const protectedPaths = ['/home', '/combos', '/papers', '/admin', '/privacy-policy', '/terms-conditions', '/refund-policy', '/live-chat', '/tutorials'];
   if (isUserLoading && protectedPaths.some(p => pathname.startsWith(p))) {
     return (
@@ -332,13 +321,10 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     )
   }
 
-  // Allow access to login and splash page without showing the main app layout.
   if (pathname === '/login' || pathname === '/') {
     return <>{children}</>;
   }
 
-  // If we have a user, show the main app layout.
-  // The check for `user` here prevents a flash of the layout before redirection.
   if (user) {
     return (
       <SidebarProvider>
@@ -347,7 +333,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             <AppSidebar />
           </Sidebar>
           <div className="flex flex-col flex-1">
-              <TopBar />
+              {!hideHeader && <TopBar />}
               <SidebarInset className="bg-transparent p-0 m-0 rounded-none shadow-none md:m-0 md:rounded-none md:shadow-none min-h-0">
                   {children}
               </SidebarInset>
@@ -357,11 +343,10 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // If no user and not loading, this will be briefly rendered before redirection kicks in.
-  // A loading screen here can prevent seeing an empty page.
   return (
     <div className="flex h-screen items-center justify-center bg-background">
         <LoaderCircle className="w-10 h-10 animate-spin text-primary" />
     </div>
   );
 }
+

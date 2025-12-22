@@ -74,7 +74,7 @@ function AdminGate({ children }: { children: React.ReactNode }) {
   });
 
   useEffect(() => {
-    const sessionVerified = localStorage.getItem('admin_security_verified');
+    const sessionVerified = sessionStorage.getItem('admin_security_verified');
     if (sessionVerified === 'true') {
       setSecurityVerified(true);
     }
@@ -90,7 +90,7 @@ function AdminGate({ children }: { children: React.ReactNode }) {
         setIsVerifyingCode(false);
         return;
     }
-    localStorage.setItem('admin_security_verified', 'true');
+    sessionStorage.setItem('admin_security_verified', 'true');
     setSecurityVerified(true);
     setIsVerifyingCode(false);
   }
@@ -273,18 +273,6 @@ function AdminDashboard() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   
-  const papersQuery = useMemoFirebase(() => query(collection(firestore, "papers")), [firestore]);
-  const { data: papers, isLoading: papersLoading } = useCollection<Paper>(papersQuery);
-  
-  const usersQuery = useMemoFirebase(() => query(collection(firestore, "users")), [firestore]);
-  const { data: users, isLoading: usersLoading } = useCollection<AppUser>(usersQuery);
-  
-  const combosQuery = useMemoFirebase(() => query(collection(firestore, "combos")), [firestore]);
-  const { data: combos, isLoading: combosLoading } = useCollection<Combo>(combosQuery);
-
-  const paymentsQuery = useMemoFirebase(() => query(collection(firestore, "payments"), where("status", "==", "SUCCESS")), [firestore]);
-  const { data: payments, isLoading: paymentsLoading } = useCollection<Payment>(paymentsQuery);
-  
   const notificationForm = useForm<z.infer<typeof notificationSchema>>({ resolver: zodResolver(notificationSchema), defaultValues: { title: "", message: "", imageUrl: "" } });
 
   async function onSendNotification(values: z.infer<typeof notificationSchema>) {
@@ -304,13 +292,51 @@ function AdminDashboard() {
     setIsSyncing(true);
     toast({ title: "सिंकिंग शुरू...", description: "Cashfree से पुराने ट्रांजेक्शन की जाँच की जा रही है।" });
     try {
-      // This is a client-side fetch to a serverless function
       const response = await fetch('/api/sync-transactions', { method: 'POST' });
       const result = await response.json();
       if (!response.ok) {
         throw new Error(result.error || 'सिंक करने में विफल।');
       }
-      toast({ title: "सफलता!", description: `${result.syncedCount} ट्रांजेक्शन सफलतापूर्वक सिंक और अपडेट किए गए।` });
+      
+      const { successfulOrders } = result;
+      if (!Array.isArray(successfulOrders) || successfulOrders.length === 0) {
+        toast({ title: "कोई नया ट्रांजेक्शन नहीं", description: "पिछले 30 दिनों में कोई नया सफल ट्रांजेक्शन नहीं मिला।" });
+        setIsSyncing(false);
+        return;
+      }
+
+      const batch = writeBatch(firestore);
+      let syncedCount = 0;
+
+      for (const order of successfulOrders) {
+        if (order.order_status === 'PAID' && order.order_tags?.userId && order.order_tags?.itemId) {
+            const paymentRef = doc(firestore, "payments", order.order_id);
+            const userRef = doc(firestore, "users", order.order_tags.userId);
+            
+            batch.set(paymentRef, {
+                id: order.order_id,
+                userId: order.order_tags.userId,
+                itemId: order.order_tags.itemId,
+                itemType: order.order_tags.itemType,
+                amount: order.order_amount,
+                status: 'SUCCESS',
+                createdAt: new Date(order.order_time),
+                updatedAt: serverTimestamp()
+            }, { merge: true });
+
+            batch.update(userRef, {
+                purchasedItems: arrayUnion(order.order_tags.itemId)
+            });
+            syncedCount++;
+        }
+      }
+
+      if (syncedCount > 0) {
+        await batch.commit();
+      }
+      
+      toast({ title: "सफलता!", description: `${syncedCount} ट्रांजेक्शन सफलतापूर्वक सिंक और अपडेट किए गए।` });
+
     } catch (error: any) {
       toast({ variant: 'destructive', title: "सिंक विफल", description: error.message });
     } finally {
@@ -328,61 +354,10 @@ function AdminDashboard() {
     { title: "ट्रांजेक्शन हिस्ट्री", icon: History, link: "/admin/transactions" },
   ];
   
-  const { totalRevenue, todayRevenue } = useMemo(() => {
-    if (!payments) return { totalRevenue: 0, todayRevenue: 0 };
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    let total = 0;
-    let todayTotal = 0;
-
-    payments.forEach(p => {
-        if (p.createdAt?.toDate) { // Ensure createdAt is a Firestore Timestamp
-            const paymentDate = p.createdAt.toDate();
-            if (paymentDate >= today) {
-                todayTotal += p.amount;
-            }
-        }
-        total += p.amount;
-    });
-    return { totalRevenue: total, todayRevenue: todayTotal };
-  }, [payments]);
-
-  const analytics = [
-    { title: "कुल विषय", value: papersLoading ? <LoaderCircle className="h-5 w-5 animate-spin"/> : papers?.length ?? 0, icon: Library, gradient: "from-blue-500 to-cyan-400" },
-    { title: "कुल कॉम्बो", value: combosLoading ? <LoaderCircle className="h-5 w-5 animate-spin"/> : combos?.length ?? 0, icon: Package, gradient: "from-purple-500 to-pink-500" },
-    { title: "कुल यूज़र", value: usersLoading ? <LoaderCircle className="h-5 w-5 animate-spin"/> : users?.length ?? 0, icon: Users, gradient: "from-green-500 to-teal-400" },
-    { title: "आज की कमाई", value: paymentsLoading ? <LoaderCircle className="h-5 w-5 animate-spin"/> : `₹ ${todayRevenue.toFixed(2)}`, icon: DollarSign, gradient: "from-yellow-500 to-orange-500" },
-    { title: "कुल कमाई", value: paymentsLoading ? <LoaderCircle className="h-5 w-5 animate-spin"/> : `₹ ${totalRevenue.toFixed(2)}`, icon: DollarSign, gradient: "from-red-500 to-pink-500" },
-  ];
 
   return (
     <div className="p-4 sm:p-6 space-y-6 bg-muted/20">
-      <h1 className="font-headline text-3xl font-bold text-foreground">Admin Dashboard – MPPSC & Civil Notes</h1>
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-        {analytics.map(item => <Card key={item.title} className={cn("text-white border-0 shadow-lg", item.gradient)}><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">{item.title}</CardTitle><item.icon className="h-5 w-5 opacity-80" /></CardHeader><CardContent><div className="text-3xl font-bold">{item.value}</div></CardContent></Card>)}
-      </div>
-
-      <Card>
-        <CardHeader><CardTitle>कंटेंट मैनेजमेंट</CardTitle><CardDescription>यहां से विषय, टॉपिक, सब-फोल्डर, PDF और कॉम्बो मैनेज करें।</CardDescription></CardHeader>
-        <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {managementSections.map(section => (
-            <Card key={section.title} className="hover:shadow-lg transition-shadow">
-              <CardHeader className="flex flex-row items-center justify-between">
-                <div className="space-y-1">
-                  <CardTitle className="text-lg">{section.title}</CardTitle>
-                </div>
-                <section.icon className="w-8 h-8 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <Button className="w-full" onClick={() => router.push(section.link)}>
-                  <Settings className="mr-2 h-4 w-4" /> मैनेज करें
-                </Button>
-              </CardContent>
-            </Card>
-          ))}
-        </CardContent>
-      </Card>
+      <h1 className="font-headline text-3xl font-bold text-foreground">Admin Settings</h1>
       
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card id="send-notification" className="shadow-lg"><CardHeader><CardTitle className="flex items-center gap-2"><Send /> मैन्युअल नोटिफिकेशन भेजें</CardTitle><CardDescription>सभी यूज़र्स को एक कस्टम नोटिफिकेशन भेजें।</CardDescription></CardHeader><CardContent><Form {...notificationForm}><form onSubmit={notificationForm.handleSubmit(onSendNotification)} className="space-y-4"><FormField control={notificationForm.control} name="title" render={({ field }) => (<FormItem><FormLabel>नोटिफिकेशन का शीर्षक</FormLabel><FormControl><Input placeholder="नया स्टडी मटेरियल उपलब्ध है!" {...field} /></FormControl><FormMessage /></FormItem>)} /><FormField control={notificationForm.control} name="message" render={({ field }) => (<FormItem><FormLabel>नोटिफिकेशन का संदेश</FormLabel><FormControl><Textarea placeholder="आज हमने इतिहास के नए नोट्स अपलोड किए हैं, अभी देखें।" {...field} /></FormControl><FormMessage /></FormItem>)} /><FormField control={notificationForm.control} name="imageUrl" render={({ field }) => (<FormItem><FormLabel>इमेज URL (वैकल्पिक)</FormLabel><FormControl><Input placeholder="https://example.com/image.png" {...field} /></FormControl><FormMessage /></FormItem>)} />
@@ -415,6 +390,28 @@ function AdminDashboard() {
             <NotesColorCustomizer />
         </CardContent>
       </Card>
+      
+       <Card>
+        <CardHeader><CardTitle>कंटेंट मैनेजमेंट</CardTitle><CardDescription>यहां से विषय, टॉपिक, सब-फोल्डर, PDF और कॉम्बो मैनेज करें।</CardDescription></CardHeader>
+        <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {managementSections.map(section => (
+            <Card key={section.title} className="hover:shadow-lg transition-shadow">
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div className="space-y-1">
+                  <CardTitle className="text-lg">{section.title}</CardTitle>
+                </div>
+                <section.icon className="w-8 h-8 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <Button className="w-full" onClick={() => router.push(section.link)}>
+                  <Settings className="mr-2 h-4 w-4" /> मैनेज करें
+                </Button>
+              </CardContent>
+            </Card>
+          ))}
+        </CardContent>
+      </Card>
+
     </div>
   );
 }

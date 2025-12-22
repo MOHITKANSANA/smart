@@ -22,11 +22,11 @@ function ChatBubble({ message }: { message: ChatMessage }) {
              {!isMe && <div className="flex items-center justify-center h-8 w-8 rounded-full bg-primary text-primary-foreground flex-shrink-0"><Shield className="h-5 w-5"/></div>}
             <div
                 className={cn(
-                    "max-w-xs md:max-w-md p-3 rounded-2xl",
+                    "max-w-xs md:max-w-md p-3 rounded-2xl break-words",
                     isMe ? "bg-primary text-primary-foreground rounded-br-none" : "bg-muted rounded-bl-none"
                 )}
             >
-                <p className="text-sm break-words">{message.text}</p>
+                <p className="text-sm">{message.text}</p>
                 {message.createdAt && (
                     <p className="text-xs opacity-70 mt-1 text-right">
                         {message.createdAt.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -61,6 +61,11 @@ export default function LiveChatPage() {
     const handleSendMessage = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!newMessage.trim() || !user) {
+             toast({
+                variant: 'destructive',
+                title: 'त्रुटि',
+                description: 'संदेश भेजने के लिए आपका लॉगिन होना आवश्यक है।',
+            });
             return;
         }
         
@@ -70,6 +75,12 @@ export default function LiveChatPage() {
             const userDocRef = doc(firestore, 'users', user.uid);
             const userDocSnap = await getDoc(userDocRef);
             
+            if (!userDocSnap.exists()) {
+                throw new Error("आपका प्रोफ़ाइल नहीं मिला।");
+            }
+
+            const userData = userDocSnap.data();
+
             const messageData = {
                 text: newMessage,
                 senderId: user.uid,
@@ -78,14 +89,13 @@ export default function LiveChatPage() {
 
             const sessionData = {
                 id: user.uid,
-                userName: userDocSnap.exists() ? userDocSnap.data().fullName : user.displayName || "अज्ञात उपयोगकर्ता",
-                userEmail: userDocSnap.exists() ? userDocSnap.data().email : user.email || "कोई ईमेल नहीं",
+                userName: userData.fullName || userData.email || "अज्ञात उपयोगकर्ता",
+                userEmail: userData.email || "कोई ईमेल नहीं",
                 lastMessage: newMessage,
                 lastMessageAt: serverTimestamp(),
                 isReadByAdmin: false,
             };
 
-            // Use Promise.all to run both Firestore operations concurrently
             await Promise.all([
                 addDoc(collection(firestore, `live-chats/${user.uid}/messages`), messageData),
                 setDoc(doc(firestore, `chat-sessions/${user.uid}`), sessionData, { merge: true })
@@ -108,18 +118,8 @@ export default function LiveChatPage() {
     const isLoading = isUserLoading || messagesLoading;
 
     return (
-        <AppLayout>
-            <main className="flex-1 flex flex-col h-[calc(100vh-var(--top-bar-height,4rem))]">
-                <div className="flex items-center p-2 border-b sticky top-0 bg-background/80 backdrop-blur-sm z-10">
-                    <Button variant="ghost" size="icon" onClick={() => router.back()}>
-                        <ChevronLeft className="h-6 w-6" />
-                    </Button>
-                    <div className="ml-2">
-                        <h1 className="font-headline text-lg font-bold">लाइव सपोर्ट चैट</h1>
-                        <p className="text-xs text-muted-foreground">हम आपकी सहायता के लिए यहां हैं।</p>
-                    </div>
-                </div>
-
+        <AppLayout hideHeader={true}>
+            <main className="flex-1 flex flex-col h-screen bg-background">
                 <div className="flex-1 overflow-y-auto p-4 space-y-4">
                     {isLoading && <div className="flex justify-center pt-10"><LoaderCircle className="w-8 h-8 animate-spin text-primary" /></div>}
                     {!isLoading && messages?.map(msg => (
@@ -133,7 +133,7 @@ export default function LiveChatPage() {
                     <div ref={messagesEndRef} />
                 </div>
                 
-                <div className="p-4 border-t bg-background/80 backdrop-blur-sm mt-auto">
+                <div className="p-4 border-t bg-background mt-auto sticky bottom-0">
                     <form onSubmit={handleSendMessage} className="flex items-center gap-2">
                         <Input
                             value={newMessage}

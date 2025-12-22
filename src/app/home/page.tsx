@@ -4,8 +4,8 @@
 import React, { useMemo, useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { LoaderCircle, ChevronRight, WandSparkles, DollarSign, Book } from "lucide-react";
-import { collection, query, orderBy, limit, doc, getDoc, updateDoc, arrayUnion, writeBatch } from "firebase/firestore";
+import { LoaderCircle, ChevronRight, WandSparkles, DollarSign, Book, Users, Package, Library, History, MessageCircle, Settings } from "lucide-react";
+import { collection, query, orderBy, limit, doc, getDoc, updateDoc, arrayUnion, writeBatch, where } from "firebase/firestore";
 import { useCollection, useFirestore, useMemoFirebase, useUser } from "@/firebase";
 import { AppLayout } from "@/components/app-layout";
 import {
@@ -14,11 +14,10 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { Card, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardTitle, CardDescription, CardHeader } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import type { Paper, Combo, Tab, Payment, User as AppUser } from "@/lib/types";
 import { Button } from "@/components/ui/button";
-import Image from "next/image";
 import { useToast } from "@/hooks/use-toast";
 
 
@@ -43,7 +42,8 @@ function PaymentStatusHandler() {
                     // Step 1: Check the payment status from your own server/API
                     const response = await fetch(`/api/get-payment-status?order_id=${orderId}`);
                     if (!response.ok) {
-                        throw new Error('सर्वर से भुगतान की स्थिति प्राप्त करने में विफल।');
+                        const errorData = await response.json();
+                        throw new Error(errorData.error || 'सर्वर से भुगतान की स्थिति प्राप्त करने में विफल।');
                     }
                     const data = await response.json();
                     
@@ -57,38 +57,20 @@ function PaymentStatusHandler() {
                         return;
                     }
                     
-                    if (!paymentDoc.exists()) {
-                         // This case is unlikely if create-order is working, but it's a good fallback.
-                         console.log(`Payment record for order ${orderId} not found client-side. Creating one.`);
-                         const { userId, itemId, itemType } = data.order_tags || {};
-                         await writeBatch(firestore)
-                            .set(paymentRef, {
-                                id: orderId,
-                                userId: userId,
-                                itemId: itemId,
-                                itemType: itemType,
-                                amount: data.order_amount,
-                                status: 'PENDING',
-                                createdAt: new Date(),
-                             })
-                            .commit();
-                    }
-
-
                     const userRef = doc(firestore, "users", user.uid);
                     const batch = writeBatch(firestore);
 
                     if (data.order_status === 'PAID' || data.order_status === 'SUCCESS') {
-                        batch.update(paymentRef, { status: 'SUCCESS', updatedAt: new Date() });
+                        batch.set(paymentRef, { status: 'SUCCESS', updatedAt: new Date() }, { merge: true });
                         if (data.order_tags?.itemId) {
                             batch.update(userRef, { purchasedItems: arrayUnion(data.order_tags.itemId) });
                         }
                         await batch.commit();
                         toast({ title: 'भुगतान सफल!', description: 'आपको कंटेंट का एक्सेस मिल गया है।' });
                     } else {
-                        batch.update(paymentRef, { status: 'FAILED', updatedAt: new Date() });
+                        batch.set(paymentRef, { status: 'FAILED', updatedAt: new Date() }, { merge: true });
                         await batch.commit();
-                        toast({ variant: 'destructive', title: 'भुगतान विफल', description: data.order_status || 'आपका भुगतान सफल नहीं हुआ या रद्द कर दिया गया।' });
+                        toast({ variant: 'destructive', title: 'भुगतान विफल', description: 'आपका भुगतान सफल नहीं हुआ या रद्द कर दिया गया।' });
                     }
 
                 } catch (error: any) {
@@ -223,10 +205,9 @@ function ComboItem({ combo, index }: { combo: Combo; index: number }) {
     );
 }
 
-export default function HomePage() {
+function UserHomePage() {
   const firestore = useFirestore();
-  const router = useRouter();
-
+  
   const papersQuery = useMemoFirebase(() => query(collection(firestore, "papers"), orderBy("paperNumber")), [firestore]);
   const { data: papers, isLoading: papersLoading } = useCollection<Paper>(papersQuery);
 
@@ -236,10 +217,6 @@ export default function HomePage() {
   const isLoading = papersLoading || combosLoading;
 
   return (
-    <AppLayout>
-      <Suspense fallback={null}>
-         <PaymentStatusHandler />
-      </Suspense>
       <main className="flex-1 overflow-y-auto bg-background p-4 sm:p-6">
         {isLoading && <div className="flex justify-center p-8"><LoaderCircle className="w-8 h-8 animate-spin text-primary" /></div>}
 
@@ -296,7 +273,114 @@ export default function HomePage() {
 
         </div>
       </main>
+  );
+}
 
+function AdminHomePage() {
+  const router = useRouter();
+  const firestore = useFirestore();
+  
+  const usersQuery = useMemoFirebase(() => query(collection(firestore, "users")), [firestore]);
+  const { data: users, isLoading: usersLoading } = useCollection<AppUser>(usersQuery);
+  
+  const paymentsQuery = useMemoFirebase(() => query(collection(firestore, "payments"), where("status", "==", "SUCCESS")), [firestore]);
+  const { data: payments, isLoading: paymentsLoading } = useCollection<Payment>(paymentsQuery);
+  
+  const managementSections = [
+    { title: "विषय, टॉपिक्स, PDFs", icon: Book, link: "/admin/papers" },
+    { title: "PDF कॉम्बो", icon: Package, link: "/admin/combos" },
+    { title: "लाइव चैट", icon: MessageCircle, link: "/admin/live-chat" },
+    { title: "ट्रांजेक्शन हिस्ट्री", icon: History, link: "/admin/transactions" },
+    { title: "सभी सेटिंग्स", icon: Settings, link: "/admin" },
+  ];
+
+  const { totalRevenue, todayRevenue } = useMemo(() => {
+    if (!payments) return { totalRevenue: 0, todayRevenue: 0 };
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    let total = 0;
+    let todayTotal = 0;
+
+    payments.forEach(p => {
+        if (p.createdAt?.toDate) {
+            const paymentDate = p.createdAt.toDate();
+            if (paymentDate >= today) {
+                todayTotal += p.amount;
+            }
+        }
+        total += p.amount;
+    });
+    return { totalRevenue: total, todayRevenue: todayTotal };
+  }, [payments]);
+
+  const analytics = [
+    { title: "कुल यूज़र", value: usersLoading ? <LoaderCircle className="h-5 w-5 animate-spin"/> : users?.length ?? 0, icon: Users, gradient: "from-green-500 to-teal-400" },
+    { title: "आज की कमाई", value: paymentsLoading ? <LoaderCircle className="h-5 w-5 animate-spin"/> : `₹${todayRevenue.toFixed(2)}`, icon: DollarSign, gradient: "from-yellow-500 to-orange-500" },
+    { title: "कुल कमाई", value: paymentsLoading ? <LoaderCircle className="h-5 w-5 animate-spin"/> : `₹${totalRevenue.toFixed(2)}`, icon: DollarSign, gradient: "from-red-500 to-pink-500" },
+  ];
+
+  return (
+    <main className="flex-1 p-4 sm:p-6 space-y-6 bg-muted/20">
+      <h1 className="font-headline text-3xl font-bold text-foreground">एडमिन डैशबोर्ड</h1>
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {analytics.map(item => <Card key={item.title} className={cn("text-white border-0 shadow-lg", item.gradient)}><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">{item.title}</CardTitle><item.icon className="h-5 w-5 opacity-80" /></CardHeader><CardContent><div className="text-3xl font-bold">{item.value}</div></CardContent></Card>)}
+      </div>
+
+      <Card>
+        <CardHeader><CardTitle>त्वरित लिंक</CardTitle><CardDescription>यहां से ऐप के मुख्य भागों को मैनेज करें।</CardDescription></CardHeader>
+        <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {managementSections.map(section => (
+            <Card key={section.title} className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => router.push(section.link)}>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div className="space-y-1">
+                  <CardTitle className="text-lg">{section.title}</CardTitle>
+                </div>
+                <section.icon className="w-8 h-8 text-muted-foreground" />
+              </CardHeader>
+            </Card>
+          ))}
+        </CardContent>
+      </Card>
+    </main>
+  );
+}
+
+
+export default function HomePage() {
+  const { user, isUserLoading } = useUser();
+  const firestore = useFirestore();
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [isRoleLoading, setIsRoleLoading] = useState(true);
+
+  useEffect(() => {
+    async function checkAdminRole() {
+      if (user) {
+        const userDocRef = doc(firestore, 'users', user.uid);
+        const userDoc = await getDoc(userDocRef);
+        if (userDoc.exists() && userDoc.data().role === 'admin') {
+          setIsAdmin(true);
+        }
+      }
+      setIsRoleLoading(false);
+    }
+    checkAdminRole();
+  }, [user, firestore]);
+
+  const isLoading = isUserLoading || isRoleLoading;
+  
+  return (
+    <AppLayout>
+      <Suspense fallback={<div className="flex h-full items-center justify-center p-8"><LoaderCircle className="w-8 h-8 animate-spin text-primary" /></div>}>
+         <PaymentStatusHandler />
+      </Suspense>
+      {isLoading ? (
+          <div className="flex h-full items-center justify-center p-8"><LoaderCircle className="w-8 h-8 animate-spin text-primary" /></div>
+      ) : isAdmin ? (
+          <AdminHomePage />
+      ) : (
+          <UserHomePage />
+      )}
     </AppLayout>
   );
 }

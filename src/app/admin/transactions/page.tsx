@@ -49,16 +49,16 @@ export default function TransactionsPage() {
             {isLoading ? (
               <div className="flex justify-center p-8"><LoaderCircle className="animate-spin h-8 w-8"/></div>
             ) : (
-              <div className="border rounded-md overflow-x-auto">
+              <div className="border rounded-md">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="min-w-[200px]">Order ID</TableHead>
-                      <TableHead className="min-w-[200px]">User ID</TableHead>
-                      <TableHead className="min-w-[150px]">Item ID</TableHead>
+                      <TableHead>Order ID</TableHead>
+                      <TableHead>User ID</TableHead>
+                      <TableHead>Item ID</TableHead>
                       <TableHead>राशि</TableHead>
                       <TableHead>स्टेटस</TableHead>
-                      <TableHead className="min-w-[180px]">तारीख</TableHead>
+                      <TableHead>तारीख</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>

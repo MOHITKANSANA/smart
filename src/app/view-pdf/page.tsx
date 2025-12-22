@@ -15,8 +15,6 @@ function PDFViewer() {
     const getEmbedUrl = (url: string | null) => {
         if (!url) return null;
         try {
-            // Standard Google Drive Link: https://drive.google.com/file/d/FILE_ID/view?usp=sharing
-            // We need to transform it to: https://drive.google.com/file/d/FILE_ID/preview
             const urlObject = new URL(url);
             const pathParts = urlObject.pathname.split('/');
             const fileIdIndex = pathParts.findIndex(part => part === 'd') + 1;
@@ -25,7 +23,7 @@ function PDFViewer() {
                 const fileId = pathParts[fileIdIndex];
                 return `https://drive.google.com/file/d/${fileId}/preview`;
             }
-            return null; // Invalid format
+            return null;
         } catch (e) {
             console.error("Invalid URL for PDF viewer:", e);
             return null;
@@ -47,15 +45,8 @@ function PDFViewer() {
         )
     }
 
-
     return (
         <div className="flex flex-col h-full flex-1">
-             <div className="flex items-center p-2 border-b">
-                <Button variant="ghost" size="icon" onClick={() => router.back()}>
-                    <ChevronLeft className="h-6 w-6" />
-                </Button>
-                <h1 className="font-headline text-lg font-bold ml-2">PDF Viewer</h1>
-            </div>
             <iframe
                 src={embedUrl}
                 className="w-full h-full flex-1 border-0"
@@ -65,11 +56,10 @@ function PDFViewer() {
     );
 }
 
-
 export default function ViewPdfPage() {
   return (
-    <AppLayout>
-      <main className="flex-1 flex flex-col">
+    <AppLayout hideHeader={true}>
+      <main className="flex-1 flex flex-col h-screen">
           <Suspense fallback={<div className="flex h-full items-center justify-center">Loading PDF...</div>}>
             <PDFViewer />
           </Suspense>
