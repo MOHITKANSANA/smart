@@ -299,13 +299,6 @@ function AdminDashboard() {
           ))}
         </CardContent>
       </Card>
-      
-       <Card>
-        <CardHeader><CardTitle>AI नोट्स स्टाइल कस्टमाइज़र</CardTitle><CardDescription>यहां से AI द्वारा जेनरेट किए गए नोट्स के रंग और स्टाइल को बदलें।</CardDescription></CardHeader>
-        <CardContent>
-            <NotesColorCustomizer />
-        </CardContent>
-      </Card>
 
       <Card>
         <CardHeader><CardTitle className="flex items-center gap-2"><BookMarked /> इम्पोर्टेन्ट ट्यूटोरियल मैनेजर</CardTitle><CardDescription>यहां से ऐप के लिए ट्यूटोरियल या महत्वपूर्ण जानकारी अपडेट करें।</CardDescription></CardHeader>
