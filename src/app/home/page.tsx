@@ -4,8 +4,8 @@
 import React, { useMemo, useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { LoaderCircle, ChevronRight, WandSparkles, DollarSign, Book, Users, Package, Library, History, MessageCircle, Settings } from "lucide-react";
-import { collection, query, orderBy, limit, doc, getDoc, updateDoc, arrayUnion, writeBatch, where } from "firebase/firestore";
+import { LoaderCircle, ChevronRight, WandSparkles, DollarSign, Book, Users, Package, Library, History, MessageCircle, Settings, TrendingUp, UserCheck, BarChart2 } from "lucide-react";
+import { collection, query, orderBy, limit, doc, getDoc, updateDoc, arrayUnion, writeBatch, where, getDocs } from "firebase/firestore";
 import { useCollection, useFirestore, useMemoFirebase, useUser } from "@/firebase";
 import { AppLayout } from "@/components/app-layout";
 import {
@@ -15,6 +15,8 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Card, CardContent, CardTitle, CardDescription, CardHeader } from "@/components/ui/card";
+import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartStyle } from "@/components/ui/chart";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import { cn } from "@/lib/utils";
 import type { Paper, Combo, Tab, Payment, User as AppUser } from "@/lib/types";
 import { Button } from "@/components/ui/button";
@@ -227,7 +229,7 @@ function UserHomePage() {
         )}
 
         <div className="space-y-8">
-
+            
             {papers && papers.length > 0 && (
               <div className="space-y-4">
                   <h2 className="text-xl font-headline font-bold gradient-text">विषय (Papers)</h2>
@@ -280,11 +282,27 @@ function AdminHomePage() {
   const router = useRouter();
   const firestore = useFirestore();
   
-  const usersQuery = useMemoFirebase(() => query(collection(firestore, "users")), [firestore]);
-  const { data: users, isLoading: usersLoading } = useCollection<AppUser>(usersQuery);
-  
-  const paymentsQuery = useMemoFirebase(() => query(collection(firestore, "payments"), where("status", "==", "SUCCESS")), [firestore]);
-  const { data: payments, isLoading: paymentsLoading } = useCollection<Payment>(paymentsQuery);
+  const [users, setUsers] = useState<AppUser[]>([]);
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchData() {
+        setIsLoading(true);
+        const usersQuery = query(collection(firestore, "users"));
+        const paymentsQuery = query(collection(firestore, "payments"), where("status", "==", "SUCCESS"));
+        
+        const [usersSnapshot, paymentsSnapshot] = await Promise.all([
+            getDocs(usersQuery),
+            getDocs(paymentsQuery)
+        ]);
+
+        setUsers(usersSnapshot.docs.map(d => d.data() as AppUser));
+        setPayments(paymentsSnapshot.docs.map(d => d.data() as Payment));
+        setIsLoading(false);
+    }
+    fetchData();
+  }, [firestore]);
   
   const managementSections = [
     { title: "विषय, टॉपिक्स, PDFs", icon: Book, link: "/admin/papers" },
@@ -294,31 +312,38 @@ function AdminHomePage() {
     { title: "सभी सेटिंग्स", icon: Settings, link: "/admin" },
   ];
 
-  const { totalRevenue, todayRevenue } = useMemo(() => {
-    if (!payments) return { totalRevenue: 0, todayRevenue: 0 };
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
+  const { totalRevenue, monthlyRevenueData } = useMemo(() => {
+    if (!payments) return { totalRevenue: 0, monthlyRevenueData: [] };
+    
     let total = 0;
-    let todayTotal = 0;
+    const monthlyData: {[key: string]: number} = {};
 
     payments.forEach(p => {
-        if (p.createdAt?.toDate) {
-            const paymentDate = p.createdAt.toDate();
-            if (paymentDate >= today) {
-                todayTotal += p.amount;
-            }
-        }
         total += p.amount;
+        if (p.createdAt?.toDate) {
+            const date = p.createdAt.toDate();
+            const month = date.toLocaleString('default', { month: 'short' });
+            monthlyData[month] = (monthlyData[month] || 0) + p.amount;
+        }
     });
-    return { totalRevenue: total, todayRevenue: todayTotal };
+
+    const chartData = Object.keys(monthlyData).map(month => ({ month, revenue: monthlyData[month]}));
+
+    return { totalRevenue: total, monthlyRevenueData: chartData };
   }, [payments]);
 
   const analytics = [
-    { title: "कुल यूज़र", value: usersLoading ? <LoaderCircle className="h-5 w-5 animate-spin"/> : users?.length ?? 0, icon: Users, gradient: "from-green-500 to-teal-400" },
-    { title: "आज की कमाई", value: paymentsLoading ? <LoaderCircle className="h-5 w-5 animate-spin"/> : `₹${todayRevenue.toFixed(2)}`, icon: DollarSign, gradient: "from-yellow-500 to-orange-500" },
-    { title: "कुल कमाई", value: paymentsLoading ? <LoaderCircle className="h-5 w-5 animate-spin"/> : `₹${totalRevenue.toFixed(2)}`, icon: DollarSign, gradient: "from-red-500 to-pink-500" },
+    { title: "कुल यूज़र", value: isLoading ? <LoaderCircle className="h-5 w-5 animate-spin"/> : users?.length ?? 0, icon: Users, gradient: "from-green-500 to-teal-400" },
+    { title: "सफल ट्रांजेक्शन", value: isLoading ? <LoaderCircle className="h-5 w-5 animate-spin"/> : payments?.length ?? 0, icon: UserCheck, gradient: "from-blue-500 to-cyan-400" },
+    { title: "कुल कमाई", value: isLoading ? <LoaderCircle className="h-5 w-5 animate-spin"/> : `₹${totalRevenue.toFixed(2)}`, icon: DollarSign, gradient: "from-red-500 to-pink-500" },
   ];
+  
+  const chartConfig = {
+    revenue: {
+        label: "कमाई",
+        color: "hsl(var(--primary))",
+    }
+  } satisfies React.ComponentProps<typeof ChartContainer>["config"];
 
   return (
     <main className="flex-1 p-4 sm:p-6 space-y-6 bg-muted/20">
@@ -326,6 +351,24 @@ function AdminHomePage() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {analytics.map(item => <Card key={item.title} className={cn("text-white border-0 shadow-lg", item.gradient)}><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">{item.title}</CardTitle><item.icon className="h-5 w-5 opacity-80" /></CardHeader><CardContent><div className="text-3xl font-bold">{item.value}</div></CardContent></Card>)}
       </div>
+
+       <Card className="shadow-lg">
+        <CardHeader>
+          <CardTitle>मासिक कमाई</CardTitle>
+          <CardDescription>पिछले कुछ महीनों में हुई कमाई का विश्लेषण।</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ChartContainer config={chartConfig} className="h-64 w-full">
+            <BarChart accessibilityLayer data={monthlyRevenueData} margin={{ top: 20, right: 20, left: -10, bottom: 0}}>
+                <CartesianGrid vertical={false} />
+                <XAxis dataKey="month" tickLine={false} tickMargin={10} axisLine={false} />
+                <YAxis tickLine={false} tickMargin={10} axisLine={false} tickFormatter={(value) => `₹${value / 1000}k`}/>
+                 <ChartTooltip content={<ChartTooltipContent />} />
+                <Bar dataKey="revenue" fill="var(--color-revenue)" radius={4} />
+            </BarChart>
+          </ChartContainer>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader><CardTitle>त्वरित लिंक</CardTitle><CardDescription>यहां से ऐप के मुख्य भागों को मैनेज करें।</CardDescription></CardHeader>
@@ -356,10 +399,13 @@ export default function HomePage() {
   useEffect(() => {
     async function checkAdminRole() {
       if (user) {
-        const userDocRef = doc(firestore, 'users', user.uid);
-        const userDoc = await getDoc(userDocRef);
-        if (userDoc.exists() && userDoc.data().role === 'admin') {
-          setIsAdmin(true);
+        try {
+            const adminDocRef = doc(firestore, 'roles_admin', user.uid);
+            const adminDoc = await getDoc(adminDocRef);
+            setIsAdmin(adminDoc.exists());
+        } catch (error) {
+            console.error("Error checking admin role:", error);
+            setIsAdmin(false);
         }
       }
       setIsRoleLoading(false);

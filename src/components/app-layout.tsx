@@ -67,7 +67,7 @@ const userMenuItems = [
 ];
 
 const adminMenuItems = [
-  { icon: Home, label: "होम", href: "/home" },
+  { icon: Home, label: "एडमिन डैशबोर्ड", href: "/home" },
   { icon: MessageCircle, label: "एडमिन लाइव चैट", href: "/admin/live-chat" },
   { icon: History, label: "ट्रांजेक्शन हिस्ट्री", href: "/admin/transactions" },
 ];
@@ -137,25 +137,30 @@ function AppSidebar() {
   const { data: appUser } = useDoc<AppUser>(userDocRef);
   
   React.useEffect(() => {
-    if (appUser) {
-        setIsAdmin(appUser.role === 'admin');
-        setIsLoadingRole(false);
-    } else if (user) {
-        // If appUser is not loaded yet, wait.
-        setIsLoadingRole(true);
-    } else {
-        setIsLoadingRole(false);
+    async function checkAdminRole() {
+      if (user) {
+        try {
+            const adminDocRef = doc(firestore, 'roles_admin', user.uid);
+            const adminDoc = await getDoc(adminDocRef);
+            setIsAdmin(adminDoc.exists());
+        } catch (error) {
+            console.error("Error checking admin role:", error);
+            setIsAdmin(false);
+        }
+      }
+      setIsLoadingRole(false);
     }
-  }, [appUser, user]);
+    checkAdminRole();
+  }, [user, firestore]);
 
   const handleLogout = async () => {
-    localStorage.removeItem("admin_security_verified");
+    sessionStorage.removeItem("admin_security_verified");
     await auth.signOut();
     router.push('/login');
   };
 
   const userName = appUser?.fullName || user?.email || "User";
-  const userRole = appUser?.role;
+  const userRole = isAdmin ? 'एडमिनिस्ट्रेटर' : 'MPSE / State Exam';
   const userInitial = (appUser?.fullName || user?.email || "U").charAt(0).toUpperCase();
 
   const avatarBgColor = React.useMemo(() => user ? generateColorFromString(user.uid) : '#cccccc', [user]);
@@ -177,7 +182,7 @@ function AppSidebar() {
           </Avatar>
           <div className="text-white">
             <p className="font-semibold">{userName}</p>
-            <p className="text-xs text-white/70">{userRole === 'admin' ? 'एडमिनिस्ट्रेटर' : 'MPSE / State Exam'}</p>
+            <p className="text-xs text-white/70">{userRole}</p>
           </div>
         </div>
       </div>
@@ -250,7 +255,7 @@ function TopBar() {
   const { data: appUser } = useDoc<AppUser>(userDocRef);
   
   const handleLogout = async () => {
-    localStorage.removeItem("admin_security_verified");
+    sessionStorage.removeItem("admin_security_verified");
     await auth.signOut();
     router.push('/login');
   };
@@ -266,9 +271,9 @@ function TopBar() {
       <div className="flex-1 flex items-center gap-2">
          <h1 className="font-headline text-xl font-bold gradient-text">MPPSC & Civil Notes</h1>
       </div>
-       <Button variant="ghost" className="relative text-white bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 hover:text-white" onClick={() => router.push('/live-chat')}>
-          <MessageCircle className="w-5 h-5 mr-2"/>
-          लाइव चैट
+       <Button variant="ghost" size="icon" className="relative text-white bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 hover:text-white" onClick={() => router.push('/live-chat')}>
+          <MessageCircle className="w-5 h-5"/>
+           <span className="sr-only">लाइव चैट</span>
        </Button>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
@@ -325,6 +330,9 @@ export function AppLayout({ children, hideHeader = false }: { children: React.Re
     return <>{children}</>;
   }
 
+  const isChatPage = pathname === '/live-chat' || pathname === '/admin/live-chat';
+
+
   if (user) {
     return (
       <SidebarProvider>
@@ -333,8 +341,8 @@ export function AppLayout({ children, hideHeader = false }: { children: React.Re
             <AppSidebar />
           </Sidebar>
           <div className="flex flex-col flex-1">
-              {!hideHeader && <TopBar />}
-              <SidebarInset className="bg-transparent p-0 m-0 rounded-none shadow-none md:m-0 md:rounded-none md:shadow-none min-h-0">
+              {!(hideHeader || isChatPage) && <TopBar />}
+              <SidebarInset className="bg-transparent p-0 m-0 rounded-none shadow-none md:m-0 md:rounded-none md:shadow-none min-h-0 flex-1 flex flex-col">
                   {children}
               </SidebarInset>
           </div>
@@ -349,4 +357,3 @@ export function AppLayout({ children, hideHeader = false }: { children: React.Re
     </div>
   );
 }
-

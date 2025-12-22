@@ -3,7 +3,6 @@
 
 import React, { Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { AppLayout } from '@/components/app-layout';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, AlertTriangle } from 'lucide-react';
 
@@ -58,12 +57,10 @@ function PDFViewer() {
 
 export default function ViewPdfPage() {
   return (
-    <AppLayout hideHeader={true}>
-      <main className="flex-1 flex flex-col h-screen">
-          <Suspense fallback={<div className="flex h-full items-center justify-center">Loading PDF...</div>}>
-            <PDFViewer />
-          </Suspense>
-      </main>
-    </AppLayout>
+    <main className="flex-1 flex flex-col h-screen bg-background">
+        <Suspense fallback={<div className="flex h-full items-center justify-center">Loading PDF...</div>}>
+        <PDFViewer />
+        </Suspense>
+    </main>
   );
 }

@@ -3,36 +3,12 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { z } from "zod";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import {
-  collection,
-  doc,
-  serverTimestamp,
-  query,
-  orderBy,
-  deleteDoc,
-  getDocs,
-  setDoc,
-  addDoc
-} from "firebase/firestore";
-import {
-  useFirestore,
-  useCollection,
-  useMemoFirebase,
-} from "@/firebase";
+import { useRouter } from "next/navigation";
+import { collection, query, orderBy, getDocs } from "firebase/firestore";
+import { useFirestore, useMemoFirebase } from "@/firebase";
 import { AppLayout } from "@/components/app-layout";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -43,150 +19,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+} from "@/components/ui/alert-dialog";
 import { PlusCircle, LoaderCircle, Edit, Trash2, ChevronLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Paper, Tab, SubFolder, PdfDocument } from "@/lib/types";
-import { useRouter } from "next/navigation";
+import { deleteDoc, doc } from 'firebase/firestore';
 
-const pdfSchema = z.object({
-  id: z.string().optional(),
-  name: z.string().min(1, "PDF का नाम आवश्यक है।"),
-  description: z.string().min(1, "PDF का विवरण आवश्यक है।"),
-  googleDriveLink: z.string().url("कृपया एक मान्य गूगल ड्राइव लिंक डालें।"),
-  paperId: z.string().min(1, "कृपया एक विषय चुनें।"),
-  tabId: z.string().min(1, "कृपया एक टॉपिक चुनें।"),
-  subFolderId: z.string().min(1, "कृपया एक सब-फोल्डर चुनें।"),
-  accessType: z.enum(["Free", "Paid"]),
-  price: z.preprocess(
-    (a) => {
-        if (!a || a === '') return undefined;
-        const parsed = parseFloat(z.string().parse(a));
-        return isNaN(parsed) ? undefined : parsed;
-    },
-    z.number().positive("कीमत 0 से ज़्यादा होनी चाहिए।").optional()
-  ),
-}).refine(data => data.accessType === 'Free' || (data.price !== undefined && data.price > 0), {
-  message: "पेड PDF के लिए कीमत डालना आवश्यक है।",
-  path: ["price"],
-});
-
-
-function PdfForm({ pdf, onFinished }: { pdf?: PdfDocument | null, onFinished: () => void }) {
-  const { toast } = useToast();
-  const firestore = useFirestore();
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  
-  const papersQuery = useMemoFirebase(() => query(collection(firestore, "papers"), orderBy("paperNumber")), [firestore]);
-  const { data: papers, isLoading: papersLoading } = useCollection<Paper>(papersQuery);
-
-  const [tabs, setTabs] = useState<Tab[]>([]);
-  const [tabsLoading, setTabsLoading] = useState(false);
-  const [subFolders, setSubFolders] = useState<SubFolder[]>([]);
-  const [subFoldersLoading, setSubFoldersLoading] = useState(false);
-
-  const form = useForm<z.infer<typeof pdfSchema>>({
-    resolver: zodResolver(pdfSchema),
-    defaultValues: pdf ? { 
-      ...pdf,
-      price: pdf.price || undefined,
-    } : {
-      name: "",
-      description: "",
-      googleDriveLink: "",
-      paperId: "",
-      tabId: "",
-      subFolderId: "",
-      accessType: "Free",
-      price: undefined,
-    },
-  });
-
-  const selectedPaperId = form.watch("paperId");
-  const selectedTabId = form.watch("tabId");
-  const selectedAccessType = form.watch("accessType");
-
-  useEffect(() => {
-    const fetchTabs = async (paperId: string) => {
-        if (!paperId) { setTabs([]); return; };
-        setTabsLoading(true);
-        const tabsQuery = query(collection(firestore, `papers/${paperId}/tabs`));
-        const snapshot = await getDocs(tabsQuery);
-        setTabs(snapshot.docs.map(d => ({ ...d.data(), id: d.id } as Tab)));
-        setTabsLoading(false);
-    }
-    fetchTabs(selectedPaperId);
-     // When paper changes, reset tab and subfolder
-    form.reset({ ...form.getValues(), tabId: '', subFolderId: '' });
-  }, [selectedPaperId, firestore, form]);
-
-  useEffect(() => {
-    const fetchSubFolders = async (tabId: string) => {
-        if (!tabId) { setSubFolders([]); return; };
-        setSubFoldersLoading(true);
-        const subFoldersQuery = query(collection(firestore, `tabs/${tabId}/subFolders`));
-        const snapshot = await getDocs(subFoldersQuery);
-        setSubFolders(snapshot.docs.map(d => ({ ...d.data(), id: d.id } as SubFolder)));
-        setSubFoldersLoading(false);
-    }
-    fetchSubFolders(selectedTabId);
-    // When tab changes, reset subfolder
-    form.reset({ ...form.getValues(), subFolderId: '' });
-  }, [selectedTabId, firestore, form]);
-
-  
-  async function onSubmit(values: z.infer<typeof pdfSchema>) {
-    setIsSubmitting(true);
-    try {
-      const { subFolderId, ...pdfData } = values;
-      const finalValues = { ...values, price: values.accessType === 'Free' ? 0 : values.price };
-
-      if (pdf && pdf.subFolderId !== subFolderId) {
-        // Moving document
-        await deleteDoc(doc(firestore, `subFolders/${pdf.subFolderId}/pdfDocuments`, pdf.id));
-        await setDoc(doc(firestore, `subFolders/${subFolderId}/pdfDocuments`, pdf.id), { ...finalValues, createdAt: serverTimestamp() });
-        toast({ title: "सफलता!", description: `PDF "${values.name}" सफलतापूर्वक मूव और अपडेट हो गया है।` });
-      } else if (pdf) { // Editing
-        const pdfRef = doc(firestore, `subFolders/${subFolderId}/pdfDocuments`, pdf.id);
-        await setDoc(pdfRef, finalValues, { merge: true });
-        toast({ title: "सफलता!", description: `PDF "${values.name}" सफलतापूर्वक अपडेट हो गया है।` });
-      } else { // Adding new
-        await addDoc(collection(firestore, `subFolders/${subFolderId}/pdfDocuments`), { ...finalValues, createdAt: serverTimestamp() });
-        toast({ title: "सफलता!", description: `PDF "${values.name}" सफलतापूर्वक जोड़ दिया गया है।` });
-      }
-      onFinished();
-    } catch (error) {
-      console.error(error);
-      toast({ variant: "destructive", title: "त्रुटि!", description: "कुछ गलत हुआ।" });
-    } finally {
-      setIsSubmitting(false);
-    }
-  }
-
-  return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-        <FormField control={form.control} name="paperId" render={({ field }) => (<FormItem><FormLabel>विषय चुनें</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger disabled={papersLoading}><SelectValue placeholder="एक विषय चुनें" /></SelectTrigger></FormControl><SelectContent>{papers?.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>)}/>
-        <FormField control={form.control} name="tabId" render={({ field }) => (<FormItem><FormLabel>टॉपिक चुनें</FormLabel><Select onValueChange={field.onChange} value={field.value} disabled={!selectedPaperId || tabsLoading}><FormControl><SelectTrigger><SelectValue placeholder={!selectedPaperId ? "पहले विषय चुनें" : "एक टॉपिक चुनें"} /></SelectTrigger></FormControl><SelectContent>{tabs.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>)}/>
-        <FormField control={form.control} name="subFolderId" render={({ field }) => (<FormItem><FormLabel>सब-फोल्डर चुनें</FormLabel><Select onValueChange={field.onChange} value={field.value} disabled={!selectedTabId || subFoldersLoading}><FormControl><SelectTrigger><SelectValue placeholder={!selectedTabId ? "पहले टॉपिक चुनें" : "एक सब-फोल्डर चुनें"} /></SelectTrigger></FormControl><SelectContent>{subFolders.map(sf => <SelectItem key={sf.id} value={sf.id}>{sf.name}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>)}/>
-        
-        <FormField control={form.control} name="name" render={({ field }) => (<FormItem><FormLabel>PDF का नाम</FormLabel><FormControl><Input placeholder="जैसे: इतिहास के महत्वपूर्ण नोट्स" {...field} /></FormControl><FormMessage /></FormItem>)}/>
-        <FormField control={form.control} name="description" render={({ field }) => (<FormItem><FormLabel>PDF का विवरण</FormLabel><FormControl><Input placeholder="इसमें महत्वपूर्ण तिथियां हैं" {...field} /></FormControl><FormMessage /></FormItem>)}/>
-        <FormField control={form.control} name="googleDriveLink" render={({ field }) => (<FormItem><FormLabel>Google Drive PDF Link</FormLabel><FormControl><Input placeholder="https://drive.google.com/..." {...field} /></FormControl><FormMessage /></FormItem>)}/>
-        
-        <FormField control={form.control} name="accessType" render={({ field }) => (<FormItem><FormLabel>एक्सेस प्रकार चुनें</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="Free">Free</SelectItem><SelectItem value="Paid">Paid</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
-        {selectedAccessType === 'Paid' && <FormField control={form.control} name="price" render={({ field }) => (<FormItem><FormLabel>कीमत (₹ में)</FormLabel><FormControl><Input type="number" placeholder="जैसे: 99" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />}
-
-        <DialogFooter>
-            <Button type="button" variant="ghost" onClick={onFinished}>रद्द करें</Button>
-            <Button type="submit" disabled={isSubmitting}>{isSubmitting ? <LoaderCircle className="animate-spin" /> : pdf ? "अपडेट करें" : "सेव करें"}</Button>
-        </DialogFooter>
-      </form>
-    </Form>
-  )
-}
 
 export default function ManagePdfsPage() {
   const router = useRouter();
@@ -195,11 +33,6 @@ export default function ManagePdfsPage() {
   
   const [allPdfs, setAllPdfs] = useState<PdfDocument[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [selectedPdf, setSelectedPdf] = useState<PdfDocument | null>(null);
-
-  const [papers, setPapers] = useState<Paper[]>([]);
-  const [tabs, setTabs] = useState<Tab[]>([]);
   const [subFolders, setSubFolders] = useState<SubFolder[]>([]);
   
   const fetchAllData = async () => {
@@ -207,10 +40,9 @@ export default function ManagePdfsPage() {
       try {
         const papersSnapshot = await getDocs(query(collection(firestore, "papers"), orderBy("paperNumber")));
         const papersData = papersSnapshot.docs.map(d => ({ ...d.data(), id: d.id } as Paper));
-        setPapers(papersData);
-
+        
         const allTabs: Tab[] = [];
-        const allSubFolders: SubFolder[] = [];
+        const allSubFoldersData: SubFolder[] = [];
         const allPdfsData: PdfDocument[] = [];
 
         for (const paper of papersData) {
@@ -220,7 +52,7 @@ export default function ManagePdfsPage() {
           for (const tab of tabsData) {
               const subFoldersSnapshot = await getDocs(query(collection(firestore, `tabs/${tab.id}/subFolders`), orderBy("name")));
               const subFoldersData = subFoldersSnapshot.docs.map(d => ({ ...d.data(), id: d.id } as SubFolder));
-              allSubFolders.push(...subFoldersData);
+              allSubFoldersData.push(...subFoldersData);
               for (const subFolder of subFoldersData) {
                   const pdfsSnapshot = await getDocs(query(collection(firestore, `subFolders/${subFolder.id}/pdfDocuments`), orderBy("createdAt", "desc")));
                   const pdfsData = pdfsSnapshot.docs.map(d => ({ ...d.data(), id: d.id } as PdfDocument));
@@ -228,8 +60,7 @@ export default function ManagePdfsPage() {
               }
           }
         }
-        setTabs(allTabs);
-        setSubFolders(allSubFolders);
+        setSubFolders(allSubFoldersData);
         setAllPdfs(allPdfsData);
       } catch (error) {
         console.error("Error fetching all data:", error);
@@ -243,16 +74,6 @@ export default function ManagePdfsPage() {
     fetchAllData();
   }, [firestore, toast]);
 
-
-  const handleAddNew = () => {
-    setSelectedPdf(null);
-    setDialogOpen(true);
-  };
-  
-  const handleEdit = (pdf: PdfDocument) => {
-    setSelectedPdf(pdf);
-    setDialogOpen(true);
-  };
 
   const handleDelete = async (pdfToDelete: PdfDocument) => {
     try {
@@ -284,7 +105,7 @@ export default function ManagePdfsPage() {
           </CardHeader>
           <CardContent>
             <div className="flex justify-end mb-4">
-              <Button onClick={handleAddNew}>
+              <Button onClick={() => router.push('/admin/pdfs/new')}>
                 <PlusCircle className="mr-2 h-4 w-4" /> नया PDF जोड़ें
               </Button>
             </div>
@@ -297,7 +118,7 @@ export default function ManagePdfsPage() {
                     <p className="text-sm text-muted-foreground break-words">फोल्डर: {getSubFolderName(p.subFolderId)}</p>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0 ml-4">
-                    <Button size="sm" variant="outline" onClick={() => handleEdit(p)}><Edit className="h-4 w-4"/></Button>
+                    <Button size="sm" variant="outline" onClick={() => router.push(`/admin/pdfs/edit/${p.id}`)}><Edit className="h-4 w-4"/></Button>
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
                         <Button size="sm" variant="destructive"><Trash2 className="h-4 w-4"/></Button>
@@ -321,18 +142,6 @@ export default function ManagePdfsPage() {
             </div>
           </CardContent>
         </Card>
-
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>{selectedPdf ? 'PDF एडिट करें' : 'नया PDF जोड़ें'}</DialogTitle>
-            </DialogHeader>
-            <PdfForm pdf={selectedPdf} onFinished={() => {
-                setDialogOpen(false);
-                fetchAllData();
-            }} />
-          </DialogContent>
-        </Dialog>
       </main>
     </AppLayout>
   );

@@ -17,16 +17,14 @@ import {
   where,
   getDocs,
   writeBatch,
-  FieldValue,
 } from "firebase/firestore";
 import {
   useFirestore,
-  useCollection,
   useUser,
   useMemoFirebase,
   useDoc,
 } from "@/firebase";
-import { addDocumentNonBlocking, updateDocumentNonBlocking, setDocumentNonBlocking } from "@/firebase/non-blocking-updates";
+import { addDocumentNonBlocking, setDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import { AppLayout } from "@/components/app-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -288,61 +286,62 @@ function AdminDashboard() {
     setIsSubmitting(false);
   }
 
-  const handleSyncTransactions = async () => {
+ const handleSyncTransactions = async () => {
     setIsSyncing(true);
     toast({ title: "सिंकिंग शुरू...", description: "Cashfree से पुराने ट्रांजेक्शन की जाँच की जा रही है।" });
     try {
-      const response = await fetch('/api/sync-transactions', { method: 'POST' });
-      const result = await response.json();
-      if (!response.ok) {
-        throw new Error(result.error || 'सिंक करने में विफल।');
-      }
-      
-      const { successfulOrders } = result;
-      if (!Array.isArray(successfulOrders) || successfulOrders.length === 0) {
-        toast({ title: "कोई नया ट्रांजेक्शन नहीं", description: "पिछले 30 दिनों में कोई नया सफल ट्रांजेक्शन नहीं मिला।" });
-        setIsSyncing(false);
-        return;
-      }
-
-      const batch = writeBatch(firestore);
-      let syncedCount = 0;
-
-      for (const order of successfulOrders) {
-        if (order.order_status === 'PAID' && order.order_tags?.userId && order.order_tags?.itemId) {
-            const paymentRef = doc(firestore, "payments", order.order_id);
-            const userRef = doc(firestore, "users", order.order_tags.userId);
-            
-            batch.set(paymentRef, {
-                id: order.order_id,
-                userId: order.order_tags.userId,
-                itemId: order.order_tags.itemId,
-                itemType: order.order_tags.itemType,
-                amount: order.order_amount,
-                status: 'SUCCESS',
-                createdAt: new Date(order.order_time),
-                updatedAt: serverTimestamp()
-            }, { merge: true });
-
-            batch.update(userRef, {
-                purchasedItems: arrayUnion(order.order_tags.itemId)
-            });
-            syncedCount++;
+        const response = await fetch('/api/sync-transactions', { method: 'POST' });
+        const result = await response.json();
+        if (!response.ok) {
+            throw new Error(result.error || 'सिंक करने में विफल।');
         }
-      }
 
-      if (syncedCount > 0) {
-        await batch.commit();
-      }
-      
-      toast({ title: "सफलता!", description: `${syncedCount} ट्रांजेक्शन सफलतापूर्वक सिंक और अपडेट किए गए।` });
+        const { successfulOrders } = result;
+        if (!Array.isArray(successfulOrders) || successfulOrders.length === 0) {
+            toast({ title: "कोई नया ट्रांजेक्शन नहीं", description: "पिछले 30 दिनों में कोई नया सफल ट्रांजेक्शन नहीं मिला।" });
+            setIsSyncing(false);
+            return;
+        }
 
+        const batch = writeBatch(firestore);
+        let syncedCount = 0;
+
+        for (const order of successfulOrders) {
+            if (order.order_status === 'PAID' && order.order_tags?.userId && order.order_tags?.itemId) {
+                const paymentRef = doc(firestore, "payments", order.order_id);
+                const userRef = doc(firestore, "users", order.order_tags.userId);
+
+                // Use set with merge:true to avoid overwriting existing fields if any
+                batch.set(paymentRef, {
+                    id: order.order_id,
+                    userId: order.order_tags.userId,
+                    itemId: order.order_tags.itemId,
+                    itemType: order.order_tags.itemType,
+                    amount: order.order_amount,
+                    status: 'SUCCESS',
+                    createdAt: new Date(order.order_time), // Store as Firestore Timestamp
+                    updatedAt: serverTimestamp()
+                }, { merge: true });
+
+                batch.update(userRef, {
+                    purchasedItems: firestore.FieldValue.arrayUnion(order.order_tags.itemId)
+                });
+                syncedCount++;
+            }
+        }
+
+        if (syncedCount > 0) {
+            await batch.commit();
+             toast({ title: "सफलता!", description: `${syncedCount} ट्रांजेक्शन सफलतापूर्वक सिंक और अपडेट किए गए।` });
+        } else {
+            toast({ title: "सिंक पूरा हुआ", description: "कोई नया ट्रांजेक्शन अपडेट करने के लिए नहीं मिला।" });
+        }
     } catch (error: any) {
-      toast({ variant: 'destructive', title: "सिंक विफल", description: error.message });
+        toast({ variant: 'destructive', title: "सिंक विफल", description: error.message });
     } finally {
-      setIsSyncing(false);
+        setIsSyncing(false);
     }
-  }
+}
 
   const managementSections = [
     { title: "विषय (Papers)", icon: Book, link: "/admin/papers" },

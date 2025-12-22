@@ -229,7 +229,7 @@ export default function ManagePapersPage() {
             </DialogHeader>
             <PaperForm paper={selectedPaper} onFinished={() => {
                 setDialogOpen(false);
-                router.refresh();
+                // No need for router.refresh(), useCollection will update automatically
             }} />
           </DialogContent>
         </Dialog>
@@ -238,5 +238,3 @@ export default function ManagePapersPage() {
     </AppLayout>
   );
 }
-
-    

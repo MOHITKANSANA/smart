@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -8,7 +7,7 @@ import { collection, query, orderBy, addDoc, serverTimestamp, doc, updateDoc } f
 import { AppLayout } from '@/components/app-layout';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Send, LoaderCircle, User, Shield, ChevronLeft, Users } from 'lucide-react';
+import { Send, LoaderCircle, User, Shield, ChevronLeft, Users, MessageCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ChatMessage, ChatSession } from '@/lib/types';
 import { formatDistanceToNow } from 'date-fns';
