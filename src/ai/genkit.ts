@@ -11,5 +11,4 @@ export const ai = genkit({
       apiKey: process.env.OPENAI_API_KEY,
     }),
   ],
-  model: 'googleai/gemini-2.5-flash',
 });

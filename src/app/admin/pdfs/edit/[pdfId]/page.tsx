@@ -96,17 +96,26 @@ function PdfEditForm({ pdfId }: { pdfId: string }) {
       setIsLoadingPdf(true);
       try {
         // Use a collectionGroup query to find the PDF across all sub-folders.
-        const pdfQuery = query(collectionGroup(firestore, 'pdfDocuments'), where('__name__', '==', pdfId));
+        const pdfsCollectionGroup = collectionGroup(firestore, 'pdfDocuments');
+        const pdfQuery = query(pdfsCollectionGroup, where('__name__', '==', `subFolders/${pdfId.split('/')[1]}/pdfDocuments/${pdfId.split('/')[3]}`));
         const pdfSnapshot = await getDocs(pdfQuery);
+        
+        let foundPdfDoc;
+        if (!pdfSnapshot.empty) {
+          foundPdfDoc = pdfSnapshot.docs[0];
+        } else {
+          // Fallback to searching all documents if direct path fails
+           const allPdfsSnapshot = await getDocs(collectionGroup(firestore, 'pdfDocuments'));
+           foundPdfDoc = allPdfsSnapshot.docs.find(doc => doc.id === pdfId);
+        }
 
-        if (pdfSnapshot.empty) {
+        if (!foundPdfDoc) {
           toast({ variant: 'destructive', title: 'त्रुटि', description: 'PDF नहीं मिला।' });
           router.push('/admin/pdfs');
           return;
         }
 
-        const pdfDoc = pdfSnapshot.docs[0];
-        const foundPdf = { id: pdfDoc.id, ...pdfDoc.data() } as PdfDocument;
+        const foundPdf = { id: foundPdfDoc.id, ...foundPdfDoc.data() } as PdfDocument;
         
         // The path properties are denormalized on the PDF document itself.
         const foundPath = {
@@ -266,5 +275,3 @@ export default function EditPdfPage() {
         </AppLayout>
     )
 }
-
-    

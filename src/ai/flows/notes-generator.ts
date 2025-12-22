@@ -35,6 +35,9 @@ const notesPrompt = ai.definePrompt({
 
 Generate the notes now.
 `,
+  config: {
+    model: 'googleai/gemini-2.5-flash',
+  },
 });
 
 const notesGeneratorFlow = ai.defineFlow(
