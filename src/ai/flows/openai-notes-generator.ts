@@ -36,9 +36,6 @@ const openAIPrompt = ai.definePrompt({
 
 Generate the comprehensive, well-structured, and detailed study notes now.
 `,
-  config: {
-    model: 'openai/gpt-4o-mini',
-  },
 });
 
 const openaiNotesGeneratorFlow = ai.defineFlow(
@@ -51,10 +48,17 @@ const openaiNotesGeneratorFlow = ai.defineFlow(
     // Set default page count if not provided
     const finalInput = {
       ...input,
-      pageCount: input.pageCount || 10, // Increased default page count for more detail
+      pageCount: input.pageCount || 10,
     };
 
-    const { output } = await openAIPrompt(finalInput);
+    const { output } = await ai.generate({
+      prompt: openAIPrompt,
+      model: 'openai/gpt-4o-mini',
+      input: finalInput,
+      output: {
+        schema: NotesGeneratorOutputSchema,
+      }
+    });
     
     return { notes: output!.notes };
   }
