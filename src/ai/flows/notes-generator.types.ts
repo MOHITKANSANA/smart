@@ -7,11 +7,14 @@
 
 import { z } from 'zod';
 
+const MessageSchema = z.object({
+  role: z.enum(['user', 'model']),
+  content: z.string(),
+});
+
 export const NotesGeneratorInputSchema = z.object({
-  topic: z.string().describe('The main topic or chapter title for the notes.'),
-  language: z.enum(['Hindi', 'English']).describe('The language in which the notes should be generated.'),
-  description: z.string().optional().describe('An optional detailed description or context for the notes.'),
-  pageCount: z.number().optional().describe('The desired number of pages for the notes. Defaults to 5 if not provided.'),
+  prompt: z.string().describe('The user prompt for the notes.'),
+  history: z.array(MessageSchema).optional().describe('The conversation history.'),
 });
 export type NotesGeneratorInput = z.infer<typeof NotesGeneratorInputSchema>;
 
