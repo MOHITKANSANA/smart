@@ -120,10 +120,14 @@ export default function PaymentDialog({ isOpen, setIsOpen, item, itemType }: Pay
             }
 
             // 4. Initiate Cashfree checkout
-            const cashfree = new window.Cashfree({ mode: "production" });
+            const cashfree = new window.Cashfree({
+                mode: "production" 
+            });
             cashfree.checkout({
                 paymentSessionId: data.payment_session_id,
+                redirectTarget: "_modal"
             });
+             setIsProcessing(false); // Enable button again after checkout is initiated
 
         } catch (error: any) {
             console.error("Payment Failed:", error.message);
@@ -134,7 +138,6 @@ export default function PaymentDialog({ isOpen, setIsOpen, item, itemType }: Pay
             });
             // If something fails, update the record to FAILED
             await setDoc(paymentRef, { status: 'FAILED', error: error.message, updatedAt: serverTimestamp() }, { merge: true });
-        } finally {
             setIsProcessing(false);
         }
     };
