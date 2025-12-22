@@ -265,84 +265,8 @@ function TutorialsManager() {
 
 
 function AdminDashboard() {
-  const { toast } = useToast();
-  const firestore = useFirestore();
   const router = useRouter();
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isSyncing, setIsSyncing] = useState(false);
   
-  const notificationForm = useForm<z.infer<typeof notificationSchema>>({ resolver: zodResolver(notificationSchema), defaultValues: { title: "", message: "", imageUrl: "" } });
-
-  async function onSendNotification(values: z.infer<typeof notificationSchema>) {
-    setIsSubmitting(true);
-    const newNotification = {
-      ...values,
-      readBy: [],
-      createdAt: serverTimestamp(),
-    };
-    await addDocumentNonBlocking(collection(firestore, "notifications"), newNotification);
-    toast({ title: "सफलता!", description: `सूचना "${values.title}" भेज दी गई है।` });
-    notificationForm.reset();
-    setIsSubmitting(false);
-  }
-
- const handleSyncTransactions = async () => {
-    setIsSyncing(true);
-    toast({ title: "सिंकिंग शुरू...", description: "Cashfree से पुराने ट्रांजेक्शन की जाँच की जा रही है।" });
-    try {
-        const response = await fetch('/api/sync-transactions', { method: 'POST' });
-        const result = await response.json();
-        if (!response.ok) {
-            throw new Error(result.error || 'सिंक करने में विफल।');
-        }
-
-        const { successfulOrders } = result;
-        if (!Array.isArray(successfulOrders) || successfulOrders.length === 0) {
-            toast({ title: "कोई नया ट्रांजेक्शन नहीं", description: "पिछले 30 दिनों में कोई नया सफल ट्रांजेक्शन नहीं मिला।" });
-            setIsSyncing(false);
-            return;
-        }
-
-        const batch = writeBatch(firestore);
-        let syncedCount = 0;
-
-        for (const order of successfulOrders) {
-            if (order.order_status === 'PAID' && order.order_tags?.userId && order.order_tags?.itemId) {
-                const paymentRef = doc(firestore, "payments", order.order_id);
-                const userRef = doc(firestore, "users", order.order_tags.userId);
-
-                // Use set with merge:true to avoid overwriting existing fields if any
-                batch.set(paymentRef, {
-                    id: order.order_id,
-                    userId: order.order_tags.userId,
-                    itemId: order.order_tags.itemId,
-                    itemType: order.order_tags.itemType,
-                    amount: order.order_amount,
-                    status: 'SUCCESS',
-                    createdAt: new Date(order.order_time), // Store as Firestore Timestamp
-                    updatedAt: serverTimestamp()
-                }, { merge: true });
-
-                batch.update(userRef, {
-                    purchasedItems: firestore.FieldValue.arrayUnion(order.order_tags.itemId)
-                });
-                syncedCount++;
-            }
-        }
-
-        if (syncedCount > 0) {
-            await batch.commit();
-             toast({ title: "सफलता!", description: `${syncedCount} ट्रांजेक्शन सफलतापूर्वक सिंक और अपडेट किए गए।` });
-        } else {
-            toast({ title: "सिंक पूरा हुआ", description: "कोई नया ट्रांजेक्शन अपडेट करने के लिए नहीं मिला।" });
-        }
-    } catch (error: any) {
-        toast({ variant: 'destructive', title: "सिंक विफल", description: error.message });
-    } finally {
-        setIsSyncing(false);
-    }
-}
-
   const managementSections = [
     { title: "विषय (Papers)", icon: Book, link: "/admin/papers" },
     { title: "टॉपिक्स (Tabs)", icon: FolderKanban, link: "/admin/tabs" },
@@ -358,24 +282,6 @@ function AdminDashboard() {
     <div className="p-4 sm:p-6 space-y-6 bg-muted/20">
       <h1 className="font-headline text-3xl font-bold text-foreground">Admin Settings</h1>
       
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card id="send-notification" className="shadow-lg"><CardHeader><CardTitle className="flex items-center gap-2"><Send /> मैन्युअल नोटिफिकेशन भेजें</CardTitle><CardDescription>सभी यूज़र्स को एक कस्टम नोटिफिकेशन भेजें।</CardDescription></CardHeader><CardContent><Form {...notificationForm}><form onSubmit={notificationForm.handleSubmit(onSendNotification)} className="space-y-4"><FormField control={notificationForm.control} name="title" render={({ field }) => (<FormItem><FormLabel>नोटिफिकेशन का शीर्षक</FormLabel><FormControl><Input placeholder="नया स्टडी मटेरियल उपलब्ध है!" {...field} /></FormControl><FormMessage /></FormItem>)} /><FormField control={notificationForm.control} name="message" render={({ field }) => (<FormItem><FormLabel>नोटिफिकेशन का संदेश</FormLabel><FormControl><Textarea placeholder="आज हमने इतिहास के नए नोट्स अपलोड किए हैं, अभी देखें।" {...field} /></FormControl><FormMessage /></FormItem>)} /><FormField control={notificationForm.control} name="imageUrl" render={({ field }) => (<FormItem><FormLabel>इमेज URL (वैकल्पिक)</FormLabel><FormControl><Input placeholder="https://example.com/image.png" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                <Button type="submit" className="w-full" disabled={isSubmitting}>{isSubmitting ? <LoaderCircle className="animate-spin" /> : "अभी भेजें"}</Button></form></Form></CardContent></Card>
-        
-        <Card>
-            <CardHeader><CardTitle>सिस्टम सिंक</CardTitle><CardDescription>पुराने सफल भुगतानों को सिंक करें और यूज़र्स को एक्सेस प्रदान करें।</CardDescription></CardHeader>
-            <CardContent>
-                <p className="text-sm text-muted-foreground mb-4">
-                    यह बटन Cashfree से पिछले 30 दिनों के सभी सफल ट्रांजेक्शन को आपके सिस्टम में सिंक करेगा। यदि किसी यूज़र ने भुगतान किया है और उसे एक्सेस नहीं मिला है, तो यह उसे ठीक कर देगा।
-                </p>
-                <Button onClick={handleSyncTransactions} disabled={isSyncing} className="w-full">
-                    {isSyncing ? <LoaderCircle className="animate-spin mr-2" /> : <RefreshCw className="mr-2 h-4 w-4" />}
-                    {isSyncing ? 'सिंक हो रहा है...' : 'पुराने ट्रांजेक्शन सिंक करें'}
-                </Button>
-            </CardContent>
-        </Card>
-      </div>
-
        <Card>
         <CardHeader><CardTitle className="flex items-center gap-2"><BookMarked /> इम्पोर्टेन्ट ट्यूटोरियल मैनेजर</CardTitle><CardDescription>यहां से ऐप के लिए ट्यूटोरियल या महत्वपूर्ण जानकारी अपडेट करें।</CardDescription></CardHeader>
         <CardContent>
