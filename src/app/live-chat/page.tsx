@@ -1,10 +1,11 @@
 
+
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser, useFirestore, useCollection, useDoc, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, addDoc, serverTimestamp, doc, getDoc } from 'firebase/firestore';
+import { collection, query, orderBy, addDoc, serverTimestamp, doc, getDoc, setDoc } from 'firebase/firestore';
 import { AppLayout } from '@/components/app-layout';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -116,6 +117,13 @@ export default function LiveChatPage() {
     return (
         <AppLayout hideHeader={true}>
             <main className="flex-1 flex flex-col h-screen bg-background">
+                 <div className="p-4 border-b flex items-center gap-2 sticky top-0 bg-background/80 backdrop-blur-sm z-10">
+                    <Button variant="ghost" size="icon" onClick={() => router.push('/home')}>
+                        <ChevronLeft className="h-6 w-6" />
+                    </Button>
+                    <h1 className="font-bold text-lg">लाइव चैट</h1>
+                </div>
+
                 <div className="flex-1 overflow-y-auto p-4 space-y-4">
                     {isLoading && <div className="flex justify-center pt-10"><LoaderCircle className="w-8 h-8 animate-spin text-primary" /></div>}
                     {!isLoading && messages?.map(msg => (

@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -6,13 +7,10 @@ import { useRouter } from 'next/navigation';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Eye, EyeOff, User, Lock, Mail, KeyRound, BookOpenCheck, LoaderCircle, Phone, MessageSquare } from 'lucide-react';
+import { Eye, EyeOff, User, Lock, Mail, KeyRound, BookOpenCheck, LoaderCircle } from 'lucide-react';
 import { useAuth, initiateEmailSignIn, initiateEmailSignUp, initiatePasswordReset, useUser } from '@/firebase';
 import { setDoc, doc } from 'firebase/firestore';
 import { useFirestore } from '@/firebase';
-import { RecaptchaVerifier, signInWithPhoneNumber, type ConfirmationResult } from 'firebase/auth';
-
-
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -46,14 +44,6 @@ const signupSchema = z.object({
 
 const forgotPasswordSchema = z.object({
     email: z.string().email({ message: 'कृपया एक मान्य ईमेल दर्ज करें।'})
-});
-
-const phoneLoginSchema = z.object({
-    phone: z.string().min(10, { message: 'कृपया एक मान्य 10-अंकीय मोबाइल नंबर डालें।' }).regex(/^\d{10}$/, 'कृपया केवल 10 अंक डालें।'),
-});
-
-const otpSchema = z.object({
-    otp: z.string().min(6, { message: 'कृपया 6-अंकीय OTP डालें।' }),
 });
 
 export default function LoginPage() {
@@ -98,10 +88,6 @@ function AuthForm() {
   const auth = useAuth();
   const firestore = useFirestore();
 
-  // Phone Auth State
-  const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
-  const [isOtpSent, setIsOtpSent] = useState(false);
-
   const loginForm = useForm<z.infer<typeof loginSchema>>({
     resolver: zodResolver(loginSchema),
     defaultValues: { email: '', password: '' },
@@ -117,32 +103,9 @@ function AuthForm() {
     defaultValues: { email: '' },
   });
   
-  const phoneLoginForm = useForm<z.infer<typeof phoneLoginSchema>>({
-    resolver: zodResolver(phoneLoginSchema),
-    defaultValues: { phone: '' },
-  });
-  
-  const otpForm = useForm<z.infer<typeof otpSchema>>({
-    resolver: zodResolver(otpSchema),
-    defaultValues: { otp: '' },
-  });
-
   const selectedRole = signupForm.watch('role');
   
-  const setupRecaptcha = () => {
-    if (!auth) return;
-    if (!(window as any).recaptchaVerifier) {
-      (window as any).recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-        'size': 'invisible',
-        'callback': (response: any) => {
-          // reCAPTCHA solved, allow signInWithPhoneNumber.
-        }
-      });
-    }
-  };
-
-
-  function handleAuthError(error: any, formType: 'login' | 'signup' | 'reset' | 'phone') {
+  function handleAuthError(error: any, formType: 'login' | 'signup' | 'reset') {
     setIsLoading(false);
     let title = 'एक त्रुटि हुई';
     let description = 'कुछ गलत हो गया। कृपया दोबारा प्रयास करें।';
@@ -164,20 +127,6 @@ function AuthForm() {
       case 'auth/too-many-requests':
         title = 'बहुत सारे प्रयास';
         description = 'आपने बहुत बार प्रयास किया है। कृपया कुछ देर बाद फिर से प्रयास करें।';
-        break;
-       case 'auth/invalid-phone-number':
-        title = 'अमान्य नंबर';
-        description = 'कृपया देश कोड के साथ एक मान्य मोबाइल नंबर दर्ज करें। जैसे: +91XXXXXXXXXX';
-        setIsOtpSent(false); // Reset OTP form
-        break;
-       case 'auth/code-expired':
-        title = 'OTP की समय-सीमा समाप्त';
-        description = 'OTP की समय-सीमा समाप्त हो गई है। कृपया एक नया OTP भेजें।';
-        setIsOtpSent(false);
-        break;
-      case 'auth/invalid-verification-code':
-        title = 'अमान्य OTP';
-        description = 'आपने जो OTP डाला है वह गलत है। कृपया दोबारा जांचें।';
         break;
       default:
         description = error.message;
@@ -258,67 +207,12 @@ function AuthForm() {
         setIsLoading(false);
     }
   }
-
-  async function onSendOtp(values: z.infer<typeof phoneLoginSchema>) {
-    setIsLoading(true);
-    try {
-        setupRecaptcha();
-        const phoneNumber = "+91" + values.phone;
-        const appVerifier = (window as any).recaptchaVerifier;
-        const confirmation = await signInWithPhoneNumber(auth, phoneNumber, appVerifier);
-        setConfirmationResult(confirmation);
-        setIsOtpSent(true);
-        toast({ title: "OTP भेजा गया", description: `आपके मोबाइल नंबर ${phoneNumber} पर एक OTP भेजा गया है।`});
-    } catch(error: any) {
-        console.error("Phone auth error", error);
-        handleAuthError(error, 'phone');
-    } finally {
-        setIsLoading(false);
-    }
-  }
-
-  async function onVerifyOtp(values: z.infer<typeof otpSchema>) {
-    setIsLoading(true);
-    if (!confirmationResult) {
-        handleAuthError({ message: 'पुष्टिकरण परिणाम नहीं मिला। कृपया पुनः प्रयास करें।' }, 'phone');
-        return;
-    }
-    try {
-        const userCredential = await confirmationResult.confirm(values.otp);
-        const user = userCredential.user;
-
-        // Create user profile if it's a new user
-        const userRef = doc(firestore, "users", user.uid);
-        const userData = {
-            id: user.uid,
-            fullName: user.displayName || 'User',
-            email: user.email || '',
-            role: 'student',
-            mobileNumber: user.phoneNumber
-        };
-        // Use setDoc with merge to create or update without overwriting
-        setDocumentNonBlocking(userRef, userData, { merge: true });
-
-        toast({
-            title: 'सफलतापूर्वक लॉगिन हुआ!',
-            description: 'होमपेज पर रीडायरेक्ट किया जा रहा है...',
-        });
-        router.push('/home');
-    } catch(error: any) {
-        handleAuthError(error, 'phone');
-    } finally {
-        setIsLoading(false);
-    }
-  }
-  
   
   return (
      <>
-     <div id="recaptcha-container"></div>
      <Tabs defaultValue="login" className="w-full">
-      <TabsList className="grid w-full grid-cols-3 bg-card border border-border h-12 p-1">
-        <TabsTrigger value="login" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary text-foreground/80 h-full">ईमेल</TabsTrigger>
-        <TabsTrigger value="mobile" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary text-foreground/80 h-full">मोबाइल</TabsTrigger>
+      <TabsList className="grid w-full grid-cols-2 bg-card border border-border h-12 p-1">
+        <TabsTrigger value="login" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary text-foreground/80 h-full">लॉगिन</TabsTrigger>
         <TabsTrigger value="signup" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary text-foreground/80 h-full">साइन-अप</TabsTrigger>
       </TabsList>
       <div className="glass-card mt-4 p-6 sm:p-8 !bg-card border border-border">
@@ -369,61 +263,7 @@ function AuthForm() {
             </form>
           </Form>
         </TabsContent>
-         <TabsContent value="mobile">
-            {!isOtpSent ? (
-                <Form {...phoneLoginForm}>
-                    <form onSubmit={phoneLoginForm.handleSubmit(onSendOtp)} className="space-y-6">
-                        <FormField
-                            control={phoneLoginForm.control}
-                            name="phone"
-                            render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>मोबाइल नंबर</FormLabel>
-                                <FormControl>
-                                <div className="relative flex items-center">
-                                    <Phone className="absolute left-3 h-5 w-5 text-muted-foreground" />
-                                    <span className="pl-10 pr-2 text-muted-foreground">+91</span>
-                                    <Input placeholder="10-अंकीय मोबाइल नंबर" {...field} className="pl-2 h-12"/>
-                                </div>
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                            )}
-                        />
-                        <Button type="submit" className="w-full h-12 text-lg font-bold bg-primary hover:bg-primary/90" disabled={isLoading}>
-                            {isLoading ? <LoaderCircle className="animate-spin" /> : 'OTP भेजें'}
-                        </Button>
-                    </form>
-                </Form>
-            ) : (
-                <Form {...otpForm}>
-                     <form onSubmit={otpForm.handleSubmit(onVerifyOtp)} className="space-y-6">
-                        <FormField
-                            control={otpForm.control}
-                            name="otp"
-                            render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>OTP दर्ज करें</FormLabel>
-                                <FormControl>
-                                <div className="relative">
-                                    <MessageSquare className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                                    <Input placeholder="6-अंकीय OTP" {...field} className="pl-10 h-12"/>
-                                </div>
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                            )}
-                        />
-                        <Button type="submit" className="w-full h-12 text-lg font-bold bg-primary hover:bg-primary/90" disabled={isLoading}>
-                            {isLoading ? <LoaderCircle className="animate-spin" /> : 'OTP सत्यापित करें'}
-                        </Button>
-                         <div className="text-center">
-                            <button type="button" onClick={() => setIsOtpSent(false)} className="text-sm text-muted-foreground hover:text-foreground hover:underline">गलत नंबर? वापस जाएं</button>
-                        </div>
-                    </form>
-                </Form>
-            )}
-        </TabsContent>
+        
         <TabsContent value="signup">
            <Form {...signupForm}>
             <form onSubmit={signupForm.handleSubmit(onSignup)} className="space-y-4">
@@ -501,5 +341,3 @@ function AuthForm() {
     </>
   );
 }
-
-    

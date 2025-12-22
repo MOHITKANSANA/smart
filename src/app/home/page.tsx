@@ -5,7 +5,7 @@
 import React, { useMemo, useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { LoaderCircle, ChevronRight, WandSparkles, DollarSign, Book, Users, Package, Library, History, MessageCircle, Settings, TrendingUp, UserCheck, BarChart2, FolderKanban, FileText, BookMarked } from "lucide-react";
+import { LoaderCircle, ChevronRight, WandSparkles, DollarSign, Book, Users, Package, Library, History, MessageCircle, Settings, TrendingUp, UserCheck, BarChart2, FolderKanban, FileText, BookMarked, ShieldCheck } from "lucide-react";
 import { collection, query, orderBy, limit, doc, getDoc, updateDoc, arrayUnion, writeBatch, where, getDocs } from "firebase/firestore";
 import { useCollection, useFirestore, useMemoFirebase, useUser } from "@/firebase";
 import { AppLayout } from "@/components/app-layout";
@@ -279,148 +279,6 @@ function UserHomePage() {
   );
 }
 
-function AdminHomePage() {
-  const router = useRouter();
-  const firestore = useFirestore();
-  
-  const [users, setUsers] = useState<AppUser[]>([]);
-  const [payments, setPayments] = useState<Payment[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    async function fetchData() {
-        setIsLoading(true);
-        const usersQuery = query(collection(firestore, "users"));
-        const paymentsQuery = query(collection(firestore, "payments"), where("status", "==", "SUCCESS"));
-        
-        const [usersSnapshot, paymentsSnapshot] = await Promise.all([
-            getDocs(usersQuery),
-            getDocs(paymentsQuery)
-        ]);
-
-        setUsers(usersSnapshot.docs.map(d => ({...d.data(), id: d.id } as AppUser)));
-        setPayments(paymentsSnapshot.docs.map(d => ({...d.data(), id: d.id } as Payment)));
-        setIsLoading(false);
-    }
-    fetchData();
-  }, [firestore]);
-  
-  const managementSections = [
-    { title: "विषय (Papers)", icon: Book, link: "/admin/papers" },
-    { title: "टॉपिक्स (Tabs)", icon: FolderKanban, link: "/admin/tabs" },
-    { title: "सब-फोल्डर्स", icon: FolderKanban, link: "/admin/sub-folders" },
-    { title: "PDF ডকুমেন্টস", icon: FileText, link: "/admin/pdfs" },
-    { title: "PDF कॉम्बो", icon: Package, link: "/admin/combos" },
-    { title: "लाइव चैट", icon: MessageCircle, link: "/admin/live-chat" },
-    { title: "ट्रांजेक्शन हिस्ट्री", icon: History, link: "/admin/transactions" },
-  ];
-
-  const { totalRevenue, monthlyRevenueData } = useMemo(() => {
-    if (!payments) return { totalRevenue: 0, monthlyRevenueData: [] };
-    
-    let total = 0;
-    const monthlyData: {[key: string]: number} = {};
-
-    payments.forEach(p => {
-        total += p.amount;
-        if (p.createdAt?.toDate) {
-            const date = p.createdAt.toDate();
-            const month = date.toLocaleString('default', { month: 'short' });
-            monthlyData[month] = (monthlyData[month] || 0) + p.amount;
-        }
-    });
-
-    const chartData = Object.keys(monthlyData).map(month => ({ month, revenue: monthlyData[month]}));
-
-    return { totalRevenue: total, monthlyRevenueData: chartData };
-  }, [payments]);
-  
-  const chartConfig = {
-    revenue: {
-        label: "कमाई",
-        color: "hsl(var(--primary))",
-    },
-    users: {
-        label: "नए उपयोगकर्ता",
-        color: "hsl(var(--accent))",
-    }
-  } satisfies React.ComponentProps<typeof ChartContainer>["config"];
-
-  return (
-    <main className="flex-1 p-4 sm:p-6 space-y-6 bg-muted/20">
-      <h1 className="font-headline text-3xl font-bold text-foreground">एडमिन डैशबोर्ड</h1>
-      
-       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        <Card className="text-white bg-gradient-to-tr from-green-500 to-teal-400 border-0 shadow-lg">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">कुल यूज़र</CardTitle><Users className="h-5 w-5 opacity-80" /></CardHeader>
-          <CardContent><div className="text-3xl font-bold">{isLoading ? <LoaderCircle className="h-8 w-8 animate-spin"/> : users?.length ?? 0}</div></CardContent>
-        </Card>
-        <Card className="text-white bg-gradient-to-tr from-blue-500 to-cyan-400 border-0 shadow-lg">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">सफल ट्रांजेक्शन</CardTitle><UserCheck className="h-5 w-5 opacity-80" /></CardHeader>
-          <CardContent><div className="text-3xl font-bold">{isLoading ? <LoaderCircle className="h-8 w-8 animate-spin"/> : payments?.length ?? 0}</div></CardContent>
-        </Card>
-        <Card className="text-white bg-gradient-to-tr from-red-500 to-pink-500 border-0 shadow-lg">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">कुल कमाई</CardTitle><DollarSign className="h-5 w-5 opacity-80" /></CardHeader>
-          <CardContent><div className="text-3xl font-bold">{isLoading ? <LoaderCircle className="h-8 w-8 animate-spin"/> : `₹${totalRevenue.toFixed(2)}`}</div></CardContent>
-        </Card>
-      </div>
-
-      <div className="grid grid-cols-1 gap-6">
-         <Card className="shadow-lg">
-          <CardHeader>
-            <CardTitle>मासिक कमाई</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ChartContainer config={chartConfig} className="h-64 w-full">
-              <BarChart accessibilityLayer data={monthlyRevenueData} margin={{ top: 20, right: 20, left: -10, bottom: 0}}>
-                  <defs>
-                    <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="var(--color-revenue)" stopOpacity={0.8}/>
-                      <stop offset="95%" stopColor="var(--color-revenue)" stopOpacity={0.1}/>
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid vertical={false} strokeDasharray="3 3" />
-                  <XAxis dataKey="month" tickLine={false} tickMargin={10} axisLine={false} />
-                  <YAxis tickLine={false} tickMargin={10} axisLine={false} tickFormatter={(value) => `₹${Number(value) / 1000}k`}/>
-                  <ChartTooltip cursor={{fill: 'hsl(var(--muted))', radius: 4}} content={<ChartTooltipContent />} />
-                  <Bar dataKey="revenue" fill="url(#colorRevenue)" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ChartContainer>
-          </CardContent>
-        </Card>
-      </div>
-
-      
-      <Card>
-          <CardHeader>
-              <CardTitle>क्विक मैनेजमेंट</CardTitle>
-          </CardHeader>
-          <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {managementSections.map(section => (
-            <Card key={section.title} className="hover:shadow-lg transition-shadow cursor-pointer group" onClick={() => router.push(section.link)}>
-                <CardHeader className="flex flex-row items-center justify-between">
-                <div className="space-y-1">
-                    <CardTitle className="text-lg group-hover:text-primary">{section.title}</CardTitle>
-                </div>
-                <section.icon className="w-8 h-8 text-muted-foreground group-hover:text-primary" />
-                </CardHeader>
-            </Card>
-            ))}
-             <Card className="hover:shadow-lg transition-shadow cursor-pointer group" onClick={() => router.push('/admin')}>
-                <CardHeader className="flex flex-row items-center justify-between">
-                <div className="space-y-1">
-                    <CardTitle className="text-lg group-hover:text-primary">ट्यूटोरियल मैनेजर</CardTitle>
-                </div>
-                <BookMarked className="w-8 h-8 text-muted-foreground group-hover:text-primary" />
-                </CardHeader>
-            </Card>
-        </CardContent>
-      </Card>
-    </main>
-  );
-}
-
-
 export default function HomePage() {
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
@@ -453,8 +311,6 @@ export default function HomePage() {
       </Suspense>
       {isLoading ? (
           <div className="flex h-full items-center justify-center p-8"><LoaderCircle className="w-8 h-8 animate-spin text-primary" /></div>
-      ) : isAdmin ? (
-          <AdminHomePage />
       ) : (
           <UserHomePage />
       )}

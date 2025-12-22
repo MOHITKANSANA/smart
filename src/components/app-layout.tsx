@@ -23,7 +23,8 @@ import {
   Menu,
   MessageCircle,
   BookMarked,
-  History
+  History,
+  LayoutDashboard
 } from "lucide-react";
 import { useUser, useAuth, useDoc, useFirestore, useMemoFirebase } from "@/firebase";
 import { doc, getDoc } from 'firebase/firestore';
@@ -67,7 +68,8 @@ const userMenuItems = [
 ];
 
 const adminMenuItems = [
-  { icon: Home, label: "एडमिन डैशबोर्ड", href: "/home" },
+  { icon: Home, label: "यूज़र होम", href: "/home" },
+  { icon: LayoutDashboard, label: "एडमिन डैशबोर्ड", href: "/admin" },
   { icon: MessageCircle, label: "एडमिन लाइव चैट", href: "/admin/live-chat" },
   { icon: History, label: "ट्रांजेक्शन हिस्ट्री", href: "/admin/transactions" },
 ];
@@ -266,7 +268,7 @@ function TopBar() {
   const avatarBgColor = React.useMemo(() => user ? generateColorFromString(user.uid) : '#cccccc', [user]);
   
   return (
-    <header className="sticky top-0 z-10 flex h-16 items-center gap-4 border-b bg-background px-4 md:px-6" style={{'--top-bar-height': '4rem'} as React.CSSProperties}>
+    <header className="sticky top-0 z-10 flex h-16 items-center gap-4 border-b bg-background px-4 md:px-6">
       <SidebarTrigger className={cn(!isMobile && "hidden")} />
       <div className="flex-1 flex items-center gap-2">
          <h1 className="font-headline text-xl font-bold gradient-text">MPPSC & Civil Notes</h1>
@@ -289,7 +291,6 @@ function TopBar() {
           <DropdownMenuLabel>मेरा अकाउंट</DropdownMenuLabel>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={() => router.push('/tutorials')}>इम्पोर्टेन्ट ट्यूटोरियल</DropdownMenuItem>
-          <DropdownMenuItem>सेटिंग्स</DropdownMenuItem>
           <DropdownMenuItem>प्रोफाइल</DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={handleLogout} className="text-red-500 focus:text-red-500 focus:bg-red-500/10">लॉगआउट</DropdownMenuItem>
@@ -308,16 +309,22 @@ export function AppLayout({ children, hideHeader = false }: { children: React.Re
     if (isUserLoading) {
       return;
     }
-    if (!user && pathname !== '/login' && pathname !== '/') {
+    const isAuthPage = pathname === '/login' || pathname === '/';
+    if (!user && !isAuthPage) {
         router.replace('/login');
     }
-    if (user && (pathname === '/login' || pathname === '/')) {
+    if (user && isAuthPage) {
       router.replace('/home');
     }
 
   }, [isUserLoading, user, router, pathname]);
 
-  const protectedPaths = ['/home', '/combos', '/papers', '/admin', '/privacy-policy', '/terms-conditions', '/refund-policy', '/live-chat', '/tutorials'];
+  const protectedPaths = [
+      '/home', '/admin', '/combos', '/papers', 
+      '/privacy-policy', '/terms-conditions', '/refund-policy', 
+      '/live-chat', '/tutorials', '/topics', '/sub-folders'
+  ];
+
   if (isUserLoading && protectedPaths.some(p => pathname.startsWith(p))) {
     return (
         <div className="flex h-screen items-center justify-center bg-background">
@@ -329,10 +336,7 @@ export function AppLayout({ children, hideHeader = false }: { children: React.Re
   if (pathname === '/login' || pathname === '/') {
     return <>{children}</>;
   }
-
-  const isChatPage = pathname === '/live-chat' || pathname === '/admin/live-chat';
-
-
+  
   if (user) {
     return (
       <SidebarProvider>
@@ -341,7 +345,7 @@ export function AppLayout({ children, hideHeader = false }: { children: React.Re
             <AppSidebar />
           </Sidebar>
           <div className="flex flex-col flex-1">
-              {!(hideHeader || isChatPage) && <TopBar />}
+              {!hideHeader && <TopBar />}
               <SidebarInset className="bg-transparent p-0 m-0 rounded-none shadow-none md:m-0 md:rounded-none md:shadow-none min-h-0 flex-1 flex flex-col">
                   {children}
               </SidebarInset>
@@ -357,5 +361,3 @@ export function AppLayout({ children, hideHeader = false }: { children: React.Re
     </div>
   );
 }
-
-    
