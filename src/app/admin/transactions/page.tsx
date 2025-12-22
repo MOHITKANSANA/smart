@@ -1,18 +1,17 @@
 
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { collection, query, orderBy } from "firebase/firestore";
-import { useFirestore, useCollection, useMemoFirebase } from "@/firebase";
+import { collection, query, orderBy, getDocs } from "firebase/firestore";
+import { useFirestore, useMemoFirebase } from "@/firebase";
 import { AppLayout } from "@/components/app-layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { LoaderCircle, ChevronLeft } from "lucide-react";
-import { cn } from "@/lib/utils";
-import type { Payment } from "@/lib/types";
+import type { Payment, User, Combo, PdfDocument } from "@/lib/types";
 
 function getStatusVariant(status: 'PENDING' | 'SUCCESS' | 'FAILED') {
     switch (status) {
@@ -23,12 +22,81 @@ function getStatusVariant(status: 'PENDING' | 'SUCCESS' | 'FAILED') {
     }
 }
 
+interface EnrichedPayment extends Payment {
+  userName?: string;
+  userEmail?: string;
+  itemName?: string;
+}
+
 export default function TransactionsPage() {
   const router = useRouter();
   const firestore = useFirestore();
   
-  const paymentsQuery = useMemoFirebase(() => query(collection(firestore, "payments"), orderBy("createdAt", "desc")), [firestore]);
-  const { data: payments, isLoading } = useCollection<Payment>(paymentsQuery);
+  const [enrichedPayments, setEnrichedPayments] = useState<EnrichedPayment[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchAllData = async () => {
+      setIsLoading(true);
+      try {
+        // Fetch all necessary data in parallel
+        const paymentsQuery = query(collection(firestore, "payments"), orderBy("createdAt", "desc"));
+        const usersQuery = collection(firestore, "users");
+        
+        const [paymentsSnapshot, usersSnapshot] = await Promise.all([
+          getDocs(paymentsQuery),
+          getDocs(usersQuery),
+        ]);
+
+        const payments = paymentsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Payment));
+        const users = usersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User));
+        const usersMap = new Map(users.map(u => [u.id, u]));
+
+        // We also need all combos and pdfs to get their names
+        const combosSnapshot = await getDocs(collection(firestore, "combos"));
+        const combos = combosSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Combo));
+        const itemsMap = new Map<string, { name: string }>(combos.map(c => [c.id, { name: c.name }]));
+
+        // This is complex: fetching all PDFs from all sub-folders.
+        // For simplicity in this context, we will try to fetch them. In a real large-scale app, this should be optimized.
+        const papersSnapshot = await getDocs(collection(firestore, "papers"));
+        for (const paperDoc of papersSnapshot.docs) {
+          const tabsSnapshot = await getDocs(collection(paperDoc.ref, "tabs"));
+          for (const tabDoc of tabsSnapshot.docs) {
+            const subFoldersSnapshot = await getDocs(collection(tabDoc.ref, "subFolders"));
+            for (const subFolderDoc of subFoldersSnapshot.docs) {
+              const pdfsSnapshot = await getDocs(collection(subFolderDoc.ref, "pdfDocuments"));
+              pdfsSnapshot.forEach(pdfDoc => {
+                const pdfData = pdfDoc.data() as PdfDocument;
+                itemsMap.set(pdfDoc.id, { name: pdfData.name });
+              });
+            }
+          }
+        }
+        
+        // Enrich payment data
+        const enriched = payments.map(p => {
+          const user = usersMap.get(p.userId);
+          const item = itemsMap.get(p.itemId);
+          return {
+            ...p,
+            userName: user?.fullName || 'अज्ञात',
+            userEmail: user?.email || 'कोई ईमेल नहीं',
+            itemName: item?.name || 'आइटम नहीं मिला',
+          };
+        });
+
+        setEnrichedPayments(enriched);
+      } catch (e) {
+        console.error("Error fetching transactions data:", e);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchAllData();
+  }, [firestore]);
+
 
   return (
     <AppLayout>
@@ -53,20 +121,21 @@ export default function TransactionsPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="min-w-[200px]">Order ID</TableHead>
-                      <TableHead className="min-w-[200px]">User ID</TableHead>
-                      <TableHead className="min-w-[150px]">Item ID</TableHead>
+                      <TableHead className="min-w-[200px]">यूज़र</TableHead>
+                      <TableHead className="min-w-[150px]">आइटम</TableHead>
                       <TableHead>राशि</TableHead>
                       <TableHead>स्टेटस</TableHead>
                       <TableHead className="min-w-[180px]">तारीख</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {payments && payments.length > 0 ? payments.map((p) => (
+                    {enrichedPayments && enrichedPayments.length > 0 ? enrichedPayments.map((p) => (
                       <TableRow key={p.id}>
-                        <TableCell className="font-mono text-xs break-all">{p.id}</TableCell>
-                        <TableCell className="font-mono text-xs break-all">{p.userId}</TableCell>
-                        <TableCell className="font-mono text-xs break-all">{p.itemId}</TableCell>
+                        <TableCell>
+                            <div className="font-medium break-words">{p.userName}</div>
+                            <div className="text-xs text-muted-foreground break-all">{p.userEmail}</div>
+                        </TableCell>
+                        <TableCell className="break-words">{p.itemName}</TableCell>
                         <TableCell>₹{p.amount.toFixed(2)}</TableCell>
                         <TableCell>
                           <Badge variant={getStatusVariant(p.status)}>{p.status}</Badge>
@@ -75,7 +144,7 @@ export default function TransactionsPage() {
                       </TableRow>
                     )) : (
                         <TableRow>
-                            <TableCell colSpan={6} className="text-center h-24">
+                            <TableCell colSpan={5} className="text-center h-24">
                                 कोई ट्रांजेक्शन नहीं मिला।
                             </TableCell>
                         </TableRow>
