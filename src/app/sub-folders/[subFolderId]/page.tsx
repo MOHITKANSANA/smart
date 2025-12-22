@@ -40,12 +40,12 @@ function PdfItem({ pdf, index, onPay, hasAccess }: { pdf: PdfDocument; index: nu
             <div className={cn("p-2 rounded-md mr-4", 'bg-white/20')}>
                 <FileText className="h-5 w-5 text-white" />
             </div>
-            <div className="flex-1">
-              <p className="font-semibold text-sm">{pdf.name}</p>
-              <p className="text-xs text-white/80">{pdf.description}</p>
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-sm break-all">{pdf.name}</p>
+              <p className="text-xs text-white/80 break-all">{pdf.description}</p>
             </div>
             {pdf.accessType === 'Paid' && (
-                <div className="ml-4">
+                <div className="ml-4 flex-shrink-0">
                     {hasAccess ? (
                         <span className="text-xs font-bold bg-green-500/80 px-2 py-1 rounded-md">Owned</span>
                     ) : (

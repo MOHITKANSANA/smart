@@ -1,4 +1,4 @@
-/* Custom styles for the generated colorful notes */
+/* Custom styles for the generated notes */
 .colorful-notes {
     line-height: 1.8;
     color: var(--notes-text-color, #333333);
@@ -10,48 +10,59 @@
     background-color: hsl(var(--background));
 }
 
-
-.colorful-notes h1 {
-    font-size: 2.6em;
-    font-weight: 800;
-    margin-bottom: 1em;
-    border-bottom: 4px solid var(--notes-h1-color, #0D63C6);
-    padding-bottom: 0.4em;
-    color: var(--notes-h1-color, #0A4A99);
+.colorful-notes h1, .colorful-notes h2, .colorful-notes h3 {
+    display: flex;
+    align-items: center;
+    gap: 0.5em;
     font-family: var(--font-headline);
 }
 
+.colorful-notes h1::before, .colorful-notes h2::before, .colorful-notes h3::before {
+    font-size: 1.2em;
+}
+
+.colorful-notes h1 {
+    font-size: 2.2em;
+    font-weight: 800;
+    margin-bottom: 1em;
+    border-bottom: 2px solid var(--notes-h1-color, #e0e0e0);
+    padding-bottom: 0.4em;
+    color: var(--notes-h1-color, #111827);
+}
+.colorful-notes h1::before {
+    content: '🎯';
+}
 .dark .colorful-notes h1 {
-    border-color: var(--notes-h1-color, hsl(var(--primary)));
+    border-color: var(--notes-h1-color, hsl(var(--border)));
     color: var(--notes-h1-color, hsl(var(--primary)));
 }
 
 .colorful-notes h2 {
-    font-size: 2.1em;
+    font-size: 1.8em;
     font-weight: 700;
     margin-top: 1.8em;
     margin-bottom: 1em;
-    padding-left: 0.6em;
-    border-left: 5px solid var(--notes-h2-color, #2C9D44);
-    color: var(--notes-h2-color, #1A7431);
-    font-family: var(--font-headline);
+    color: var(--notes-h2-color, #1f2937);
 }
-
+.colorful-notes h2::before {
+    content: '📜';
+}
 .dark .colorful-notes h2 {
-    border-color: var(--notes-h2-color, #34d399); /* Emerald 400 */
-    color: var(--notes-h2-color, #a7f3d0); /* Emerald 200 */
+    color: var(--notes-h2-color, #a7f3d0);
 }
 
 .colorful-notes h3 {
-    font-size: 1.6em;
+    font-size: 1.4em;
     font-weight: 600;
     margin-top: 1.5em;
     margin-bottom: 0.8em;
-    color: #E65100; /* Deep Orange */
+    color: #374151;
 }
-
+.colorful-notes h3::before {
+    content: '✨';
+}
 .dark .colorful-notes h3 {
-     color: #f59e0b; /* Amber 500 */
+     color: #f3f4f6;
 }
 
 .colorful-notes p {
@@ -80,17 +91,17 @@
 }
 
 .colorful-notes ul > li::marker {
-    color: var(--notes-h2-color, #2C9D44); /* Green */
+    color: var(--notes-h2-color, #2C9D44);
     font-weight: bold;
 }
 
 .colorful-notes ol > li::marker {
-    color: var(--notes-h1-color, #0D63C6); /* Deeper Blue */
+    color: var(--notes-h1-color, #0D63C6);
     font-weight: bold;
 }
 
 .colorful-notes a {
-    color: #17a2b8; /* Teal/Info color */
+    color: #17a2b8;
     text-decoration: underline;
     text-decoration-color: #86d8e5;
     transition: color 0.2s;
@@ -108,7 +119,6 @@
 .dark .colorful-notes a:hover {
     color: hsl(var(--primary));
 }
-
 
 .colorful-notes code {
     background-color: #f0f0f0;

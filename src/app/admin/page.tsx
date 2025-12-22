@@ -279,21 +279,7 @@ function AdminDashboard() {
     <div className="p-4 sm:p-6 space-y-6 bg-muted/20">
       <h1 className="font-headline text-3xl font-bold text-foreground">Admin Settings</h1>
       
-       <Card>
-        <CardHeader><CardTitle className="flex items-center gap-2"><BookMarked /> इम्पोर्टेन्ट ट्यूटोरियल मैनेजर</CardTitle><CardDescription>यहां से ऐप के लिए ट्यूटोरियल या महत्वपूर्ण जानकारी अपडेट करें।</CardDescription></CardHeader>
-        <CardContent>
-            <TutorialsManager />
-        </CardContent>
-      </Card>
-
-       <Card>
-        <CardHeader><CardTitle>AI नोट्स स्टाइल कस्टमाइज़र</CardTitle><CardDescription>यहां से AI द्वारा जेनरेट किए गए नोट्स के रंग और स्टाइल को बदलें।</CardDescription></CardHeader>
-        <CardContent>
-            <NotesColorCustomizer />
-        </CardContent>
-      </Card>
-      
-       <Card>
+      <Card>
         <CardHeader><CardTitle>कंटेंट मैनेजमेंट</CardTitle><CardDescription>यहां से विषय, टॉपिक, सब-फोल्डर, PDF और कॉम्बो मैनेज करें।</CardDescription></CardHeader>
         <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {managementSections.map(section => (
@@ -311,6 +297,20 @@ function AdminDashboard() {
               </CardContent>
             </Card>
           ))}
+        </CardContent>
+      </Card>
+      
+       <Card>
+        <CardHeader><CardTitle>AI नोट्स स्टाइल कस्टमाइज़र</CardTitle><CardDescription>यहां से AI द्वारा जेनरेट किए गए नोट्स के रंग और स्टाइल को बदलें।</CardDescription></CardHeader>
+        <CardContent>
+            <NotesColorCustomizer />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle className="flex items-center gap-2"><BookMarked /> इम्पोर्टेन्ट ट्यूटोरियल मैनेजर</CardTitle><CardDescription>यहां से ऐप के लिए ट्यूटोरियल या महत्वपूर्ण जानकारी अपडेट करें।</CardDescription></CardHeader>
+        <CardContent>
+            <TutorialsManager />
         </CardContent>
       </Card>
 

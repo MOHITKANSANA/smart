@@ -3,13 +3,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useFirestore, useCollection, useDoc, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, addDoc, serverTimestamp, doc } from 'firebase/firestore';
+import { collection, query, orderBy, addDoc, serverTimestamp, doc, setDoc } from 'firebase/firestore';
 import { AppLayout } from '@/components/app-layout';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Send, LoaderCircle, User, Shield, ChevronLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ChatMessage, ChatSession } from '@/lib/types';
+import { useToast } from '@/hooks/use-toast';
 
 function ChatBubble({ message }: { message: ChatMessage }) {
     const isAdminReply = message.senderId === 'admin';
@@ -19,7 +20,7 @@ function ChatBubble({ message }: { message: ChatMessage }) {
              {!isAdminReply && <div className="flex items-center justify-center h-8 w-8 rounded-full bg-secondary text-secondary-foreground flex-shrink-0"><User className="h-5 w-5"/></div>}
             <div
                 className={cn(
-                    "max-w-xs md:max-w-md p-3 rounded-2xl break-words break-all",
+                    "max-w-xs md:max-w-md p-3 rounded-2xl break-all",
                     isAdminReply ? "bg-primary text-primary-foreground rounded-br-none" : "bg-muted rounded-bl-none"
                 )}
             >
@@ -38,6 +39,7 @@ function ChatBubble({ message }: { message: ChatMessage }) {
 export default function AdminChatWindowPage() {
     const router = useRouter();
     const params = useParams();
+    const { toast } = useToast();
     const sessionId = params.sessionId as string;
     const firestore = useFirestore();
     const [newMessage, setNewMessage] = useState('');
@@ -81,8 +83,13 @@ export default function AdminChatWindowPage() {
                  }, { merge: true })
             ]);
             setNewMessage('');
-        } catch (error) {
+        } catch (error: any) {
             console.error("Error sending admin message:", error);
+            toast({
+                variant: 'destructive',
+                title: 'संदेश भेजने में विफल',
+                description: error.message || 'Firestore में डेटा सहेजते समय कोई समस्या हुई।'
+            });
         } finally {
             setIsSending(false);
         }
