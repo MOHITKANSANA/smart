@@ -79,7 +79,7 @@ export default function AINotesGeneratorPage() {
           <Button variant="ghost" size="icon" onClick={() => router.back()}>
             <ChevronLeft className="h-6 w-6" />
           </Button>
-          <h1 className="font-headline text-2xl font-bold gradient-text">AI Notes जेनरेटर (OpenAI)</h1>
+          <h1 className="font-headline text-2xl font-bold gradient-text">AI Notes जेनरेटर</h1>
         </div>
 
         <Card className="max-w-2xl mx-auto shadow-lg">

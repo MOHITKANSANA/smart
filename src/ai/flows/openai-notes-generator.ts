@@ -19,27 +19,27 @@ const openAIPrompt = ai.definePrompt({
   name: 'openaiNotesGeneratorPrompt',
   input: { schema: NotesGeneratorInputSchema },
   output: { schema: NotesGeneratorOutputSchema },
-  prompt: `You are an expert educator specializing in creating high-quality, engaging, and well-structured study notes. Your task is to generate notes on a given topic in the specified language that are detailed enough to span approximately 5 pages.
+  prompt: `You are a world-class expert educator and content creator, with a specialization in creating exceptionally high-quality, comprehensive, and well-structured study notes for competitive exams. Your task is to generate extensive and detailed notes on a given topic in the specified language. The notes should be very thorough, as if you were creating a definitive guide for the topic, aiming for a length that would span approximately {{pageCount}} pages.
 
-**Instructions:**
-1.  **Analyze the Request:** Carefully read the topic, language, and any additional description provided.
-2.  **Generate Comprehensive Content:** Create detailed, in-depth notes. The content should be extensive, covering multiple sub-topics, historical context, key figures, important dates, consequences, and significance. Aim for a length that would typically fill 5 standard pages.
-3.  **Structure the Notes:** Organize the content logically using Markdown. Use headings, subheadings, bold text, and lists.
-4.  **Suggest Relevant Images (SAFELY):** As you write, identify key moments or concepts that would benefit from a visual aid. Insert an image placeholder in the format \`[[IMAGE: A descriptive prompt for an image generation AI]]\`.
-    **CRITICAL SAFETY GUIDELINE:** The prompts must be for **safe, artistic, and symbolic** images. **DO NOT** generate prompts that depict violence, combat, gore, or direct conflict. Instead of a battle, suggest a symbolic representation like a flag, a map, or an artistic depiction of courage.
+**CRITICAL INSTRUCTIONS:**
+1.  **Analyze the Request:** Meticulously read the topic, language, page count, and any additional description provided.
+2.  **Generate Comprehensive & Deep Content:** Create extremely detailed, in-depth notes. The content must be exhaustive, covering multiple sub-topics, historical context, key figures, critical dates, causes, consequences, significance, and related theories. The content should be substantial enough to genuinely match the requested page count. Do not just make the font bigger; add more facts, analysis, and details.
+3.  **Structure the Notes Logically:** Organize the content in a highly logical and hierarchical manner using Markdown. Use headings (H1, H2, H3), subheadings, bold text, and lists (both bulleted and numbered). The structure must be impeccable and easy for a student to follow.
+4.  **Suggest Relevant Images (SAFELY):** As you write, identify key moments, concepts, or figures that would benefit from a visual aid. Insert an image placeholder in the format \`[[IMAGE: A descriptive, safe-for-work prompt for an image generation AI]]\`.
+    **CRITICAL SAFETY GUIDELINE:** Image prompts MUST be for **safe, artistic, and symbolic** images. **DO NOT** generate prompts that depict violence, combat, gore, or direct conflict. Instead of a battle, suggest a symbolic representation like a flag, a map, or an artistic depiction of courage.
     *   **BAD EXAMPLE:** \`[[IMAGE: A violent battle scene from the war]]\`
     *   **GOOD EXAMPLE:** \`[[IMAGE: An artistic and symbolic painting of a flag waving over a historic map]]\`
     *   **GOOD EXAMPLE:** \`[[IMAGE: A solemn portrait of the main historical leader]]\`
-5.  **Highlight Key Information:** Emphasize the most important keywords and concepts by making them **bold**.
+5.  **Highlight Key Information:** Emphasize the most important keywords, definitions, dates, and concepts by making them **bold**. This is crucial for student revision.
 6.  **Language:** Generate the notes strictly in the requested language ({{language}}).
-7.  **Be Clear and Concise:** Use simple language and break down complex ideas.
+7.  **Be Clear and Authoritative:** Use clear, precise language. Break down complex ideas into easy-to-understand points, but maintain an expert tone.
 
 **Topic to Cover:** {{topic}}
 {{#if description}}
 **Additional Context:** {{description}}
 {{/if}}
 
-Generate the notes now.
+Generate the comprehensive, well-structured, and detailed study notes now.
 `,
   config: {
     model: 'openai/gpt-4o-mini',
@@ -71,8 +71,14 @@ const openaiNotesGeneratorFlow = ai.defineFlow(
     outputSchema: NotesGeneratorOutputSchema,
   },
   async (input) => {
+    // Set default page count if not provided
+    const finalInput = {
+      ...input,
+      pageCount: input.pageCount || 10, // Increased default page count for more detail
+    };
+
     // 1. Generate the initial notes with image placeholders.
-    const { output } = await openAIPrompt(input);
+    const { output } = await openAIPrompt(finalInput);
     let notesContent = output!.notes;
 
     // 2. Find all image placeholders.
