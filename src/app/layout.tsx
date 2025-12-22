@@ -38,7 +38,7 @@ export default function RootLayout({
           </FirebaseClientProvider>
         </ThemeProvider>
         <Script 
-          src="https://sdk.cashfree.com/js/v3/cashfree-sbox.prod.js" 
+          src="https://sdk.cashfree.com/js/v3/cashfree.prod.js" 
           strategy="beforeInteractive" 
         />
       </body>
