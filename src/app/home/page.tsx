@@ -5,7 +5,7 @@
 import React, { useMemo, useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { LoaderCircle, ChevronRight, WandSparkles, DollarSign, Book, Users, Package, Library, History, MessageCircle, Settings, TrendingUp, UserCheck, BarChart2 } from "lucide-react";
+import { LoaderCircle, ChevronRight, WandSparkles, DollarSign, Book, Users, Package, Library, History, MessageCircle, Settings, TrendingUp, UserCheck, BarChart2, FolderKanban } from "lucide-react";
 import { collection, query, orderBy, limit, doc, getDoc, updateDoc, arrayUnion, writeBatch, where, getDocs } from "firebase/firestore";
 import { useCollection, useFirestore, useMemoFirebase, useUser } from "@/firebase";
 import { AppLayout } from "@/components/app-layout";
@@ -350,26 +350,10 @@ function AdminHomePage() {
     <main className="flex-1 p-4 sm:p-6 space-y-6 bg-muted/20">
       <h1 className="font-headline text-3xl font-bold text-foreground">एडमिन डैशबोर्ड</h1>
       
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        <Card className="text-white bg-gradient-to-tr from-green-500 to-teal-400 border-0 shadow-lg">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">कुल यूज़र</CardTitle><Users className="h-5 w-5 opacity-80" /></CardHeader>
-          <CardContent><div className="text-3xl font-bold">{isLoading ? <LoaderCircle className="h-8 w-8 animate-spin"/> : users?.length ?? 0}</div></CardContent>
-        </Card>
-        <Card className="text-white bg-gradient-to-tr from-blue-500 to-cyan-400 border-0 shadow-lg">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">सफल ट्रांजेक्शन</CardTitle><UserCheck className="h-5 w-5 opacity-80" /></CardHeader>
-          <CardContent><div className="text-3xl font-bold">{isLoading ? <LoaderCircle className="h-8 w-8 animate-spin"/> : payments?.length ?? 0}</div></CardContent>
-        </Card>
-        <Card className="text-white bg-gradient-to-tr from-red-500 to-pink-500 border-0 shadow-lg">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">कुल कमाई</CardTitle><DollarSign className="h-5 w-5 opacity-80" /></CardHeader>
-          <CardContent><div className="text-3xl font-bold">{isLoading ? <LoaderCircle className="h-8 w-8 animate-spin"/> : `₹${totalRevenue.toFixed(2)}`}</div></CardContent>
-        </Card>
-      </div>
-
       <div className="grid grid-cols-1 gap-6">
-        <Card className="shadow-lg">
+         <Card className="shadow-lg">
           <CardHeader>
             <CardTitle>मासिक कमाई</CardTitle>
-            <CardDescription>पिछले कुछ महीनों में हुई कमाई का विश्लेषण।</CardDescription>
           </CardHeader>
           <CardContent>
             <ChartContainer config={chartConfig} className="h-64 w-full">
@@ -390,27 +374,47 @@ function AdminHomePage() {
           </CardContent>
         </Card>
       </div>
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {managementSections.map(section => (
-          <Card key={section.title} className="hover:shadow-lg transition-shadow cursor-pointer group" onClick={() => router.push(section.link)}>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div className="space-y-1">
-                <CardTitle className="text-lg group-hover:text-primary">{section.title}</CardTitle>
-              </div>
-              <section.icon className="w-8 h-8 text-muted-foreground group-hover:text-primary" />
-            </CardHeader>
-          </Card>
-        ))}
-         <Card className="hover:shadow-lg transition-shadow cursor-pointer group" onClick={() => router.push('/admin')}>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div className="space-y-1">
-                <CardTitle className="text-lg group-hover:text-primary">सभी सेटिंग्स</CardTitle>
-              </div>
-              <Settings className="w-8 h-8 text-muted-foreground group-hover:text-primary" />
-            </CardHeader>
-          </Card>
+
+       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <Card className="text-white bg-gradient-to-tr from-green-500 to-teal-400 border-0 shadow-lg">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">कुल यूज़र</CardTitle><Users className="h-5 w-5 opacity-80" /></CardHeader>
+          <CardContent><div className="text-3xl font-bold">{isLoading ? <LoaderCircle className="h-8 w-8 animate-spin"/> : users?.length ?? 0}</div></CardContent>
+        </Card>
+        <Card className="text-white bg-gradient-to-tr from-blue-500 to-cyan-400 border-0 shadow-lg">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">सफल ट्रांजेक्शन</CardTitle><UserCheck className="h-5 w-5 opacity-80" /></CardHeader>
+          <CardContent><div className="text-3xl font-bold">{isLoading ? <LoaderCircle className="h-8 w-8 animate-spin"/> : payments?.length ?? 0}</div></CardContent>
+        </Card>
+        <Card className="text-white bg-gradient-to-tr from-red-500 to-pink-500 border-0 shadow-lg">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">कुल कमाई</CardTitle><DollarSign className="h-5 w-5 opacity-80" /></CardHeader>
+          <CardContent><div className="text-3xl font-bold">{isLoading ? <LoaderCircle className="h-8 w-8 animate-spin"/> : `₹${totalRevenue.toFixed(2)}`}</div></CardContent>
+        </Card>
       </div>
+      
+      <Card>
+          <CardHeader>
+              <CardTitle>कंटेंट मैनेजमेंट</CardTitle>
+          </CardHeader>
+          <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {managementSections.map(section => (
+            <Card key={section.title} className="hover:shadow-lg transition-shadow cursor-pointer group" onClick={() => router.push(section.link)}>
+                <CardHeader className="flex flex-row items-center justify-between">
+                <div className="space-y-1">
+                    <CardTitle className="text-lg group-hover:text-primary">{section.title}</CardTitle>
+                </div>
+                <section.icon className="w-8 h-8 text-muted-foreground group-hover:text-primary" />
+                </CardHeader>
+            </Card>
+            ))}
+            <Card className="hover:shadow-lg transition-shadow cursor-pointer group" onClick={() => router.push('/admin')}>
+                <CardHeader className="flex flex-row items-center justify-between">
+                <div className="space-y-1">
+                    <CardTitle className="text-lg group-hover:text-primary">सभी सेटिंग्स</CardTitle>
+                </div>
+                <Settings className="w-8 h-8 text-muted-foreground group-hover:text-primary" />
+                </CardHeader>
+            </Card>
+        </CardContent>
+      </Card>
     </main>
   );
 }
