@@ -18,7 +18,6 @@ import {
 const openAIPrompt = ai.definePrompt({
   name: 'openaiNotesGeneratorPrompt',
   input: { schema: NotesGeneratorInputSchema },
-  output: { schema: NotesGeneratorOutputSchema },
   prompt: `You are a world-class expert educator and content creator, with a specialization in creating exceptionally high-quality, comprehensive, and well-structured study notes for competitive exams. Your task is to generate extensive and detailed notes on a given topic in the specified language. The notes should be very thorough, as if you were creating a definitive guide for the topic, aiming for a length that would span approximately {{pageCount}} pages.
 
 **CRITICAL INSTRUCTIONS:**
@@ -51,16 +50,13 @@ const openaiNotesGeneratorFlow = ai.defineFlow(
       pageCount: input.pageCount || 10,
     };
 
-    const { output } = await ai.generate({
+    const response = await ai.generate({
       prompt: openAIPrompt,
       model: 'openai/gpt-4o-mini',
       input: finalInput,
-      output: {
-        schema: NotesGeneratorOutputSchema,
-      }
     });
     
-    return { notes: output!.notes };
+    return { notes: response.text };
   }
 );
 
