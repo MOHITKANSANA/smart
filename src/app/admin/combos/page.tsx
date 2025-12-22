@@ -3,21 +3,14 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { z } from "zod";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
 import {
   collection,
   doc,
-  serverTimestamp,
   query,
   orderBy,
   deleteDoc,
   getDocs,
-  setDoc,
-  addDoc,
   updateDoc,
-  arrayUnion,
   arrayRemove
 } from "firebase/firestore";
 import {
@@ -28,7 +21,6 @@ import {
 } from "@/firebase";
 import { AppLayout } from "@/components/app-layout";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import {
   Dialog,
@@ -48,30 +40,18 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PlusCircle, LoaderCircle, Edit, Trash2, ChevronLeft, FilePlus2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Combo, PdfDocument } from "@/lib/types";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { z } from "zod";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 
-const comboSchema = z.object({
-  id: z.string().optional(),
-  name: z.string().min(1, "कॉम्बो का नाम आवश्यक है।"),
-  accessType: z.enum(["Free", "Paid"]),
-  price: z.preprocess(
-    (a) => {
-        if (!a || a === "") return undefined;
-        return parseFloat(z.string().parse(a));
-    },
-    z.number().positive("कीमत 0 से ज़्यादा होनी चाहिए।").optional()
-  ),
-}).refine(data => data.accessType === 'Free' || (data.price !== undefined && data.price > 0), {
-  message: "पेड कॉम्बो के लिए कीमत डालना आवश्यक है।",
-  path: ["price"],
-});
 
 const pdfInComboSchema = z.object({
     name: z.string().min(1, "PDF का नाम आवश्यक है।"),
@@ -79,78 +59,12 @@ const pdfInComboSchema = z.object({
 });
 
 
-function ComboForm({ combo, onFinished }: { combo?: Combo | null, onFinished: () => void }) {
-  const { toast } = useToast();
-  const firestore = useFirestore();
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  
-  const form = useForm<z.infer<typeof comboSchema>>({
-    resolver: zodResolver(comboSchema),
-    defaultValues: combo ? {
-      ...combo,
-      price: combo.price || undefined,
-    } : {
-      name: "",
-      accessType: "Free",
-      price: undefined,
-    },
-  });
-
-  const selectedAccessType = form.watch("accessType");
-
-  async function onSubmit(values: z.infer<typeof comboSchema>) {
-    setIsSubmitting(true);
-    try {
-      if (combo) { // Editing
-        const comboRef = doc(firestore, "combos", combo.id);
-        await updateDoc(comboRef, {
-            name: values.name,
-            accessType: values.accessType,
-            price: values.accessType === 'Free' ? 0 : values.price,
-        });
-        toast({ title: "सफलता!", description: `कॉम्बो "${values.name}" सफलतापूर्वक अपडेट हो गया है।` });
-      } else { // Adding new
-        await addDoc(collection(firestore, "combos"), {
-          name: values.name,
-          accessType: values.accessType,
-          price: values.accessType === 'Free' ? 0 : values.price,
-          pdfIds: [],
-          createdAt: serverTimestamp()
-        });
-        toast({ title: "सफलता!", description: `कॉम्बो "${values.name}" सफलतापूर्वक जोड़ दिया गया है।` });
-      }
-      onFinished();
-    } catch (error: any) {
-      console.error("Error saving combo:", error);
-      toast({ variant: "destructive", title: "त्रुटि!", description: error.message || "कॉम्बो सेव करने में कुछ गलत हुआ।" });
-    } finally {
-      setIsSubmitting(false);
-    }
-  }
-
-  return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-        <FormField control={form.control} name="name" render={({ field }) => (<FormItem><FormLabel>कॉम्बो का नाम</FormLabel><FormControl><Input placeholder="जैसे: MPSE प्रीलिम्स क्रैश कोर्स" {...field}/></FormControl><FormMessage/></FormItem>)}/>
-        <FormField control={form.control} name="accessType" render={({ field }) => (<FormItem><FormLabel>एक्सेस प्रकार</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="Free">Free</SelectItem><SelectItem value="Paid">Paid</SelectItem></SelectContent></Select><FormMessage/></FormItem>)}/>
-        {selectedAccessType === 'Paid' && <FormField control={form.control} name="price" render={({ field }) => (<FormItem><FormLabel>कीमत (₹ में)</FormLabel><FormControl><Input type="number" placeholder="जैसे: 499" {...field} value={field.value || ''} /></FormControl><FormMessage/></FormItem>)} />}
-
-        <DialogFooter>
-            <Button type="button" variant="ghost" onClick={onFinished}>रद्द करें</Button>
-            <Button type="submit" disabled={isSubmitting}>{isSubmitting ? <LoaderCircle className="animate-spin" /> : combo ? "अपडेट करें" : "सेव करें"}</Button>
-        </DialogFooter>
-      </form>
-    </Form>
-  )
-}
-
 function ManageComboPdfsDialog({ combo, isOpen, onOpenChange }: { combo: Combo, isOpen: boolean, onOpenChange: (open: boolean) => void }) {
     const { toast } = useToast();
     const firestore = useFirestore();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [addingPdf, setAddingPdf] = useState(false);
     
-    // Simple state to force re-render pdfs list on change
     const [version, setVersion] = useState(0); 
     const comboRef = useMemoFirebase(() => doc(firestore, 'combos', combo.id), [firestore, combo.id, version]);
     const { data: currentCombo, isLoading } = useDoc<Combo>(comboRef);
@@ -169,7 +83,7 @@ function ManageComboPdfsDialog({ combo, isOpen, onOpenChange }: { combo: Combo, 
                 id: newPdfId,
                 name: values.name,
                 googleDriveLink: values.googleDriveLink,
-                accessType: "Free", // Always free inside a combo
+                accessType: "Free",
             };
             
             await updateDoc(comboDocRef, {
@@ -179,7 +93,7 @@ function ManageComboPdfsDialog({ combo, isOpen, onOpenChange }: { combo: Combo, 
             toast({ title: "सफलता!", description: `PDF "${values.name}" कॉम्बो में जोड़ दिया गया है।` });
             pdfForm.reset();
             setAddingPdf(false);
-            setVersion(v => v + 1); // Trigger refetch
+            setVersion(v => v + 1); 
         } catch (error: any) {
             console.error("Error adding PDF to combo:", error);
             toast({ variant: "destructive", title: "त्रुटि!", description: error.message });
@@ -195,7 +109,7 @@ function ManageComboPdfsDialog({ combo, isOpen, onOpenChange }: { combo: Combo, 
                 pdfDetails: arrayRemove(pdfToRemove)
             });
             toast({ title: "सफलता!", description: `PDF "${pdfToRemove.name}" हटा दिया गया है।` });
-            setVersion(v => v + 1); // Trigger refetch
+            setVersion(v => v + 1); 
         } catch(error: any) {
              console.error("Error removing PDF from combo:", error);
              toast({ variant: "destructive", title: "त्रुटि!", description: error.message });
@@ -213,7 +127,7 @@ function ManageComboPdfsDialog({ combo, isOpen, onOpenChange }: { combo: Combo, 
                     {isLoading && <div className="flex justify-center"><LoaderCircle className="animate-spin" /></div>}
                     {!isLoading && currentCombo?.pdfDetails?.map((pdf: any) => (
                         <Card key={pdf.id} className="flex items-center justify-between p-3">
-                            <p className="font-semibold text-sm break-words flex-1 min-w-0">{pdf.name}</p>
+                            <p className="font-semibold text-sm break-all flex-1 min-w-0">{pdf.name}</p>
                             <Button size="sm" variant="destructive" onClick={() => handleRemovePdf(pdf)} className="flex-shrink-0 ml-4">
                                 <Trash2 className="h-4 w-4" />
                             </Button>
@@ -255,24 +169,12 @@ export default function ManageCombosPage() {
   const firestore = useFirestore();
   const { toast } = useToast();
   
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [selectedCombo, setSelectedCombo] = useState<Combo | null>(null);
-  
   const [managePdfsCombo, setManagePdfsCombo] = useState<Combo | null>(null);
   const [managePdfsDialogOpen, setManagePdfsDialogOpen] = useState(false);
 
   const combosQuery = useMemoFirebase(() => query(collection(firestore, "combos"), orderBy("createdAt", "desc")), [firestore]);
   const { data: combos, isLoading: combosLoading, setData: setCombos } = useCollection<Combo>(combosQuery);
   
-  const handleAddNew = () => {
-    setSelectedCombo(null);
-    setDialogOpen(true);
-  };
-  
-  const handleEdit = (combo: Combo) => {
-    setSelectedCombo(combo);
-    setDialogOpen(true);
-  };
 
   const handleManagePdfs = (combo: Combo) => {
     setManagePdfsCombo(combo);
@@ -304,16 +206,6 @@ export default function ManageCombosPage() {
         'from-amber-600 to-red-700'
   ];
 
-  const handleFinish = () => {
-    setDialogOpen(false);
-    // This is a simple way to refetch the data for the main collection view
-    if (combosQuery) {
-        getDocs(combosQuery).then(snapshot => {
-            setCombos(snapshot.docs.map(d => ({...d.data(), id: d.id} as Combo)))
-        });
-    }
-  }
-
 
   return (
     <AppLayout>
@@ -332,7 +224,7 @@ export default function ManageCombosPage() {
           </CardHeader>
           <CardContent>
             <div className="flex justify-end mb-4">
-              <Button onClick={handleAddNew}>
+              <Button onClick={() => router.push('/admin/combos/new')}>
                 <PlusCircle className="mr-2 h-4 w-4" /> नया कॉम्बो जोड़ें
               </Button>
             </div>
@@ -344,13 +236,13 @@ export default function ManageCombosPage() {
                     <div className="flex items-center gap-4 z-10 flex-1 min-w-0">
                         {c.imageUrl && <Image src={c.imageUrl} alt={c.name} width={60} height={60} className="rounded-md object-cover h-16 w-16" />}
                         <div className="flex-1 min-w-0">
-                            <p className="font-semibold text-lg break-words">{c.name}</p>
+                            <p className="font-semibold text-lg break-all">{c.name}</p>
                             <p className="text-sm text-muted-foreground">{c.pdfDetails?.length || 0} PDFs शामिल हैं</p>
                         </div>
                     </div>
                   <div className="flex items-center gap-2 z-10 flex-shrink-0 ml-4">
                     <Button size="sm" variant="outline" onClick={() => handleManagePdfs(c)}><FilePlus2 className="h-4 w-4"/></Button>
-                    <Button size="sm" variant="outline" onClick={() => handleEdit(c)}><Edit className="h-4 w-4"/></Button>
+                    <Button size="sm" variant="outline" onClick={() => router.push(`/admin/combos/edit/${c.id}`)}><Edit className="h-4 w-4"/></Button>
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
                         <Button size="sm" variant="destructive"><Trash2 className="h-4 w-4"/></Button>
@@ -372,15 +264,6 @@ export default function ManageCombosPage() {
             </div>
           </CardContent>
         </Card>
-
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle>{selectedCombo ? 'कॉम्बो एडिट करें' : 'नया कॉम्बो जोड़ें'}</DialogTitle>
-            </DialogHeader>
-            <ComboForm combo={selectedCombo} onFinished={handleFinish} />
-          </DialogContent>
-        </Dialog>
         
         {managePdfsCombo && (
             <ManageComboPdfsDialog
@@ -395,3 +278,5 @@ export default function ManageCombosPage() {
     </AppLayout>
   );
 }
+
+    
