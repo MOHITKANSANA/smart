@@ -51,7 +51,7 @@ export default function TutorialsPage() {
             {renderedHtml && (
                 <div className="p-6 sm:p-8">
                   <div
-                    className="prose prose-sm sm:prose-base lg:prose-lg max-w-none colorful-notes dark:prose-invert break-words"
+                    className="prose prose-sm sm:prose-base lg:prose-lg max-w-none colorful-notes dark:prose-invert break-words break-all"
                     dangerouslySetInnerHTML={{ __html: renderedHtml }}
                   />
                 </div>
@@ -62,3 +62,4 @@ export default function TutorialsPage() {
     </AppLayout>
   );
 }
+
