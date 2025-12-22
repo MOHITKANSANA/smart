@@ -16,7 +16,9 @@ import {
   setDoc,
   deleteDoc,
   getDoc,
-  writeBatch
+  writeBatch,
+  collectionGroup,
+  where,
 } from 'firebase/firestore';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { AppLayout } from '@/components/app-layout';
@@ -89,68 +91,40 @@ function PdfEditForm({ pdfId }: { pdfId: string }) {
   const selectedTabId = form.watch('tabId');
   const selectedAccessType = form.watch('accessType');
 
-  const findPdfAndPath = useCallback(async (id: string) => {
-    const allSubFoldersQuery = query(collection(firestore, 'subFolders'));
-    const allTabsQuery = query(collection(firestore, 'tabs'));
-
-    const subFoldersCollectionGroup = query(collectionGroup(firestore, 'subFolders'));
-    const allSubFoldersSnapshot = await getDocs(subFoldersCollectionGroup);
-
-    for (const subFolderDoc of allSubFoldersSnapshot.docs) {
-      const pdfRef = doc(firestore, subFolderDoc.ref.path, 'pdfDocuments', id);
-      const pdfSnap = await getDoc(pdfRef);
-      if (pdfSnap.exists()) {
-        const pdfData = { ...pdfSnap.data(), id: pdfSnap.id } as PdfDocument;
-        const subFolderData = subFolderDoc.data() as SubFolder;
-        return { pdf: pdfData, path: { ...subFolderData, subFolderId: subFolderDoc.id } };
-      }
-    }
-    return { pdf: null, path: null };
-  }, [firestore]);
-
-
   useEffect(() => {
     const fetchPdf = async () => {
       setIsLoadingPdf(true);
       try {
-        const allTabsSnapshot = await getDocs(collection(firestore, 'tabs'));
-        const allTabs = allTabsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Tab & {id: string}));
+        // Use a collectionGroup query to find the PDF across all sub-folders.
+        const pdfQuery = query(collectionGroup(firestore, 'pdfDocuments'), where('__name__', '==', pdfId));
+        const pdfSnapshot = await getDocs(pdfQuery);
 
-        let foundPdf: PdfDocument | null = null;
-        let foundPath: { paperId: string, tabId: string, subFolderId: string } | null = null;
+        if (pdfSnapshot.empty) {
+          toast({ variant: 'destructive', title: 'त्रुटि', description: 'PDF नहीं मिला।' });
+          router.push('/admin/pdfs');
+          return;
+        }
+
+        const pdfDoc = pdfSnapshot.docs[0];
+        const foundPdf = { id: pdfDoc.id, ...pdfDoc.data() } as PdfDocument;
         
-        for(const tab of allTabs) {
-          const subFoldersSnapshot = await getDocs(collection(firestore, `tabs/${tab.id}/subFolders`));
-          for (const subFolderDoc of subFoldersSnapshot.docs) {
-            const pdfRef = doc(firestore, `subFolders/${subFolderDoc.id}/pdfDocuments`, pdfId);
-            const pdfSnap = await getDoc(pdfRef);
-            if (pdfSnap.exists()) {
-              foundPdf = { ...pdfSnap.data(), id: pdfSnap.id } as PdfDocument;
-              foundPath = {
-                paperId: tab.paperId,
-                tabId: tab.id,
-                subFolderId: subFolderDoc.id,
-              };
-              break;
-            }
-          }
-          if(foundPdf) break;
-        }
+        // The path properties are denormalized on the PDF document itself.
+        const foundPath = {
+          paperId: foundPdf.paperId,
+          tabId: foundPdf.tabId,
+          subFolderId: foundPdf.subFolderId,
+        };
 
-        if (foundPdf && foundPath) {
-          setInitialPdf(foundPdf);
-          setInitialPath(foundPath);
-          form.reset({
-              ...foundPdf,
-              paperId: foundPath.paperId,
-              tabId: foundPath.tabId,
-              subFolderId: foundPath.subFolderId,
-              price: foundPdf.price || undefined,
-          });
-        } else {
-            toast({ variant: 'destructive', title: 'त्रुटि', description: 'PDF नहीं मिला।' });
-            router.push('/admin/pdfs');
-        }
+        setInitialPdf(foundPdf);
+        setInitialPath(foundPath);
+        form.reset({
+            ...foundPdf,
+            paperId: foundPath.paperId,
+            tabId: foundPath.tabId,
+            subFolderId: foundPath.subFolderId,
+            price: foundPdf.price || undefined,
+        });
+
       } catch (error) {
         console.error("Failed to fetch PDF:", error);
         toast({ variant: 'destructive', title: 'त्रुटि', description: 'PDF लोड करने में विफल।' });
@@ -231,7 +205,8 @@ function PdfEditForm({ pdfId }: { pdfId: string }) {
     } catch (error) {
       console.error(error);
       toast({ variant: 'destructive', title: 'त्रुटि!', description: 'कुछ गलत हुआ।' });
-      setIsSubmitting(false);
+    } finally {
+        setIsSubmitting(false);
     }
   }
   
@@ -284,10 +259,12 @@ export default function EditPdfPage() {
                     </Button>
                     <h1 className="font-headline text-2xl font-bold ml-2">PDF एडिट करें</h1>
                 </div>
-                 <Suspense fallback={<LoaderCircle className="animate-spin" />}>
+                 <Suspense fallback={<div className="flex justify-center items-center p-8"><LoaderCircle className="w-8 h-8 animate-spin" /></div>}>
                      <PdfEditForm pdfId={pdfId} />
                  </Suspense>
             </main>
         </AppLayout>
     )
 }
+
+    
