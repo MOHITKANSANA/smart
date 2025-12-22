@@ -176,7 +176,7 @@ export default function AdminLiveChatPage() {
                                 onClick={() => handleSessionClick(session)}
                             >
                                 <div className="flex justify-between items-start">
-                                    <p className={cn("font-semibold break-all", !session.isReadByAdmin && "text-primary font-bold")}>{session.userName}</p>
+                                    <p className={cn("font-semibold break-words", !session.isReadByAdmin && "text-primary font-bold")}>{session.userName}</p>
                                      {!session.isReadByAdmin && <div className="h-2.5 w-2.5 rounded-full bg-blue-500 flex-shrink-0 ml-2 mt-1.5"></div>}
                                 </div>
 
