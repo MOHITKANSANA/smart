@@ -15,10 +15,7 @@ import {
   type NotesGeneratorOutput,
 } from './notes-generator.types';
 
-const openAIPrompt = ai.definePrompt({
-  name: 'openaiNotesGeneratorPrompt',
-  input: { schema: NotesGeneratorInputSchema },
-  prompt: `You are a world-class expert educator and content creator, with a specialization in creating exceptionally high-quality, comprehensive, and well-structured study notes for competitive exams. Your task is to generate extensive and detailed notes on a given topic in the specified language. The notes should be very thorough, as if you were creating a definitive guide for the topic, aiming for a length that would span approximately {{pageCount}} pages.
+const promptTemplate = `You are a world-class expert educator and content creator, with a specialization in creating exceptionally high-quality, comprehensive, and well-structured study notes for competitive exams. Your task is to generate extensive and detailed notes on a given topic in the specified language. The notes should be very thorough, as if you were creating a definitive guide for the topic, aiming for a length that would span approximately {{pageCount}} pages.
 
 **CRITICAL INSTRUCTIONS:**
 1.  **Analyze the Request:** Meticulously read the topic, language, page count, and any additional description provided.
@@ -27,6 +24,7 @@ const openAIPrompt = ai.definePrompt({
 4.  **Highlight Key Information:** Emphasize the most important keywords, definitions, dates, and concepts by making them **bold**. This is crucial for student revision.
 5.  **Language:** Generate the notes strictly in the requested language ({{language}}).
 6.  **Be Clear and Authoritative:** Use clear, precise language. Break down complex ideas into easy-to-understand points, but maintain an expert tone.
+7.  **NO IMAGES:** Do not include any images, image placeholders, or Markdown for images. The output must be pure text and Markdown.
 
 **Topic to Cover:** {{topic}}
 {{#if description}}
@@ -34,8 +32,8 @@ const openAIPrompt = ai.definePrompt({
 {{/if}}
 
 Generate the comprehensive, well-structured, and detailed study notes now.
-`,
-});
+`;
+
 
 const openaiNotesGeneratorFlow = ai.defineFlow(
   {
@@ -51,9 +49,11 @@ const openaiNotesGeneratorFlow = ai.defineFlow(
     };
 
     const response = await ai.generate({
-      prompt: openAIPrompt,
       model: 'openai/gpt-4o-mini',
-      input: finalInput,
+      prompt: {
+        text: promptTemplate,
+        input: finalInput,
+      },
     });
     
     return { notes: response.text };
